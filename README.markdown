@@ -19,6 +19,11 @@ The LAN Naming System (LNS) was conceived as a solution to both of these problem
 
 This package has two tools, `lnsd` and `lns-query`.
 
+# Installing The Python Dependencies
+
+`python3 setup.py install` should do the trick. Put the `lnsd` and `lns-query`
+programs somewhere in your `$PATH`.
+
 # Using lnsd
 
 `lnsd` is the daemon which manages the LNS protocol on the network. It accepts
