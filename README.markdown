@@ -1,10 +1,10 @@
 # Why LNS?
 
 When interacting with other people on a LAN, there is the ever-present problem of
-figuring out what another's IP address is. As far as I am aware, there are to 
+figuring out what another's IP address is. As far as I am aware, there are two 
 general solutions, neither of which are fully acceptable:
 
-- Using centralized solutions, like a DNS server, require a machine to always be
+- Using centralized solutions, like a DNS server, requires a machine to always be
   online. An ideal solution would be distributed, allowing each host to be
   responsible for figuring out which other hosts are on the network.
 - Using `/etc/hosts` is unacceptable, since it depends upon each host having a
@@ -69,7 +69,7 @@ the following form:
     hostname=foo.example
     daemonize=false
 
-(Note that it accepts any format which Python's configparser module - for example,
+(Note that it accepts any format which Python's configparser module can - for example,
 comments).
 
 # Using lns-query
