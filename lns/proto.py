@@ -1,7 +1,7 @@
 """
 A implementation of the LNS protocol.
 
-This module provides both basic packet routines, as well as the 
+This module provides both basic packet routines, as well as the network handler.
 """
 
 from collections import namedtuple
