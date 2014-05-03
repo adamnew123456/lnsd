@@ -18,8 +18,8 @@ import socket
 import sys
 import threading
 
-from lib.bidict import *
-from lib import daemon, proto, service
+from lns.bidict import *
+from lns import daemon, proto, service
 
 PID_FILE = '/tmp/lnsd.pid'
 LOG = '/tmp/lnsd.log'
