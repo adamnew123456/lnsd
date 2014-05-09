@@ -92,7 +92,7 @@ def protocol_handler(lnsd):
         now = time.time()
         till_heartbeat = max(lnsd.heartbeat - (now - last_heartbeat), 0)
 
-        events = pollster.poll(till_heartbeat)
+        events = pollster.poll(till_heartbeat * SECONDS)
 
         # If it's time, send out the next heartbeat message - don't let any
         # negative numbers in, since that tells the pollster to wait
