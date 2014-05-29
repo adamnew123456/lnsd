@@ -20,6 +20,7 @@ import threading
 
 from lns.bidict import *
 from lns import daemon, proto, service
+from lns.socks import session
 
 PID_FILE = '/tmp/lnsd.pid'
 LOG = '/tmp/lnsd.log'
@@ -32,12 +33,22 @@ class LNS_Daemon(daemon.Daemon):
         service.LNS_DBus(lnsd)
         Gtk.main()
 
+    def proxy_thread(self, lnsd):
+        """
+        Launches the SOCKS proxy.
+        """
+        proxy = session.SessionManager(lnsd, 1080)
+        proxy.run()
+
     def run(self, lnsd):
         """
-        Launches both the DBus handling thread, as well as the LNS protocol handler.
+        Launches the DBus handling thread, the proxy thread, and well as the LNS protocol handler.
         """
         dbus_thread = threading.Thread(target=self.dbus_service, args=(lnsd,), daemon=True)
         dbus_thread.start()
+
+        proxy_thread = threading.Thread(target=self.proxy_thread, args=(lnsd,), daemon=True)
+        proxy_thread.start()
 
         proto.protocol_handler(lnsd)
 
