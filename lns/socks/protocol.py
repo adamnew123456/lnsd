@@ -251,7 +251,7 @@ class BindSession:
         else:
             dest.send(data)
 
-class UDPSession:
+class AssociateSession:
     """
     Forwards UDP datagrapms over the network, according to the SOCKS protocol.
     """
