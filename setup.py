@@ -2,7 +2,7 @@ from distutils.core import setup
 
 setup(
         name='lnsd',
-        packages=['lns'],
+        packages=['lns', 'lns.socks'],
         author='Adam Marchetti',
         version='0.1',
         description='LAN Naming System',
