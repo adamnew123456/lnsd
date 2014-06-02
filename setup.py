@@ -1,8 +1,12 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
         name='lnsd',
         packages=['lns', 'lns.socks'],
+        entry_points = {
+            'console_scripts':
+                ['lnsd = lns.lnsd:main', 'lns-query = lns.query:main']
+        },
         author='Adam Marchetti',
         version='0.1',
         description='LAN Naming System',
@@ -19,8 +23,8 @@ setup(
             "Topic :: Utilities",
         ],
         long_description = """\
-LAN Naming System - lnsd
-========================
+# LAN Naming System - lnsd
 
-Provides a distributed naming system for use within LANs.
+Provides a distributed naming system for use within LANs, along with a SOCKS
+server to make accessing hosts easier.
 """)
