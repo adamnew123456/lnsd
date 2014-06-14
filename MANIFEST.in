@@ -1,5 +1,3 @@
 include LICENSE.txt
-include lnsd
-include lns-query
 include README.markdown
 include docs *.markdown
