@@ -87,7 +87,7 @@ def _protocol_handler(lnsd):
             # quit signal
             if lnsd.quit_event.is_set():
                 sock.close()
-                return
+                raise SystemExit()
 
             # Figure out how long until the next heartbeat occurs
             now = time.time()
@@ -158,8 +158,11 @@ def protocol_handler(lnsd):
     A wrapper around the actual protocol handler, which checks for network
     failures.
     """
-    while True:
-        _protocol_handler(lnsd)
-    
-        # Wait before trying to connect to the network
-        time.sleep(lnsd.heartbeat)
+    try:
+        while True:
+            _protocol_handler(lnsd)
+        
+            # Wait before trying to connect to the network
+            time.sleep(lnsd.heartbeat)
+    except SystemExit:
+        return

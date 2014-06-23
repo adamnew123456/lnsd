@@ -11,9 +11,7 @@ This particular daemon is capable of:
 """
 
 import configparser
-from dbus.mainloop.glib import DBusGMainLoop
 import getopt
-from gi.repository import Gtk
 import socket
 import sys
 import threading
@@ -29,9 +27,7 @@ class LNS_Daemon(daemon.Daemon):
         """
         Launches the DBus service.
         """
-        DBusGMainLoop(set_as_default=True)
-        service.LNS_DBus(lnsd)
-        Gtk.main()
+        service.run_service(lnsd)
 
     def proxy_thread(self, lnsd):
         """

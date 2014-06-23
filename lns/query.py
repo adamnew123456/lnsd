@@ -3,9 +3,11 @@
 Queries an LNS service running over DBus.
 """
 
-import dbus
 import getopt
+import socket
 import sys
+
+from lns import query_proto, service
 
 HELP = """lns-query - Accesses the host-name mapping provided by lnsd.
 Usage:
@@ -54,19 +56,47 @@ def main():
         print(HELP)
         sys.exit(1)
 
-    bus = dbus.SessionBus()
-    obj = bus.get_object('org.adamnew123456.lnsd', '/org/adamnew123456/lnsd')
-    iface = dbus.Interface(obj, 'org.adamnew123456.lnsd')
+    sock = socket.socket()
+    try:
+        sock.connect(('localhost', service.SERVICE_PORT))
+    except OSError:
+        print('Service is not running')
+        sys.exit(1)
+
+    def return_status_code(code):
+        sock.close()
+        sys.exit(code)
 
     if mode == ALL:
-        for host, name in iface.QueryAll().items():
-            print(host,name)
+        query_proto.send_message(sock, query_proto.GetAll())
+        result = query_proto.recv_message(sock)
+        assert isinstance(result, query_proto.NameIPMapping)
+        for name, ip in result.name_ips.items():
+            print(ip, name)
+        return_status_code(0)
     elif mode == HOST:
-        print(iface.QueryHost(option))
+        query_proto.send_message(sock, query_proto.IP(option))
+        result = query_proto.recv_message(sock)
+        assert isinstance(result, query_proto.Name)
+        if result.hostname is not None:
+            print(result.hostname)
+            return_status_code(0)
+        else:
+            return_status_code(1)
     elif mode == NAME:
-        print(iface.QueryName(option))
+        query_proto.send_message(sock, query_proto.Name(option))
+        result = query_proto.recv_message(sock)
+        assert isinstance(result, query_proto.IP)
+        if result.ip is not None:
+            print(result.ip)
+            return_status_code(0)
+        else:
+            return_status_code(1)
     elif mode == QUIT:
-        iface.Quit()
+        query_proto.send_message(sock, query_proto.Quit())
+        return_status_code(0)
+
+    sock.close()
 
 if __name__ == '__main__':
     main()
