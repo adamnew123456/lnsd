@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Queries an LNS service running over DBus.
+Queries an LNS service for hostname and IP information. Can also terminate the
+LNS service.
 """
 
 import getopt

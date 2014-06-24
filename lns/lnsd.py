@@ -7,7 +7,7 @@ This particular daemon is capable of:
 
  - Implementing the definition of LNS.
  - Reading configuration values from an INI-style file or from the command line.
- - Allowing clients to query the host-name mapping via DBus.
+ - Allowing clients to query the host-name mapping via a service.
 """
 
 import configparser
@@ -25,7 +25,7 @@ LOG = '/tmp/lnsd.log'
 class LNS_Daemon(daemon.Daemon):
     def dbus_service(self, lnsd):
         """
-        Launches the DBus service.
+        Launches the query service.
         """
         service.run_service(lnsd)
 
@@ -38,7 +38,7 @@ class LNS_Daemon(daemon.Daemon):
 
     def run(self, lnsd):
         """
-        Launches the DBus handling thread, the proxy thread, and well as the LNS protocol handler.
+        Launches the service thread, the proxy thread, and well as the LNS protocol handler.
         """
         dbus_thread = threading.Thread(target=self.dbus_service, args=(lnsd,), daemon=True)
         dbus_thread.start()
@@ -50,8 +50,8 @@ class LNS_Daemon(daemon.Daemon):
 
 class LNS:
     """
-    A container, meant to make it easy for the LNS protocol handler and the DBus
-    service to share data.
+    A container, meant to make it easy for the LNS protocol handler and the other
+    services to share data.
     """
     def __init__(self, port, timeout, heartbeat, name, daemonize):
         self.port = port
@@ -61,7 +61,7 @@ class LNS:
         self.should_daemonize = daemonize
 
         # Note that this lock is only used by the protocol handler when it modifies
-        # this dict - this is because the DBus service is guaranteed to never touch
+        # this dict - this is because the other services are guaranteed to never touch
         # this dict, only read from it.
         self.host_names_lock = threading.Lock()
         self.host_names = bidict()
@@ -70,7 +70,7 @@ class LNS:
 
     def main(self):
         """
-        Starts both the DBus service as well as the protocol, daemonizing before
+        Starts both the support services as well as the protocol, daemonizing before
         hand if necessary.
         """
         daemon = LNS_Daemon(PID_FILE, stdout=LOG, stderr=None, home_dir='/')

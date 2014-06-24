@@ -83,7 +83,7 @@ def _protocol_handler(lnsd):
         last_heartbeat = 0
         
         while True:
-            # This event is set by the DBus thread, in response to a user-initiated 
+            # This event is set by the command service, in response to a user-initiated 
             # quit signal
             if lnsd.quit_event.is_set():
                 sock.close()
