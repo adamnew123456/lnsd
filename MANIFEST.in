@@ -1,3 +1,4 @@
 include LICENSE.txt
 include README.markdown
 include docs *.markdown
+include extra
