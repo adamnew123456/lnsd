@@ -85,9 +85,11 @@ class LNS:
 HELP = """lnsd - An implementation of the LAN Naming Service protocol.
 Usage:
 
-    lnsd [-c config] [-p port] [-h heartbeat] [-t timeout] [-n name]
+    lnsd [-h] [-c config] [-p port] [-h heartbeat] [-t timeout] [-n name] [-D]
 
 Options:
+
+    -h              Prints out this help page.
 
     -c CONFIG       Config is the name of an INI-style configuration 
                     file to load configuration values from. Note that
@@ -108,9 +110,9 @@ Options:
 
     -D              This causes lnsd to go into daemon mode. By default, lnsd
                     remains in the foreground.
-
-    -h              Print out this help message.
 """.strip()
+
+USAGE = 'lnsd [-h] [-D] [-c config] [-p port] [-h heartbeat] [-t timeout] [-n name]'
 
 MAX_PORT = 2 << 15 - 1
 
@@ -128,7 +130,7 @@ def check_port_or_die(argvalue):
 
         return port
     except ValueError:
-        print('Invalid port number:', argvalue)
+        print('Invalid port number:', argvalue, file=sys.stderr)
         sys.exit(1)
 
 def check_timeout_or_die(argvalue):
@@ -144,7 +146,7 @@ def check_timeout_or_die(argvalue):
             raise ValueError
         return timeout
     except ValueError:
-        print('Invalid timeout value:', argvalue)
+        print('Invalid timeout value:', argvalue, file=sys.stderr)
         sys.exit(1)
 
 def check_heartbeat_or_die(argvalue):
@@ -160,7 +162,7 @@ def check_heartbeat_or_die(argvalue):
             raise ValueError
         return interval
     except ValueError:
-        print('Invalid heartbeat interval:', argvalue)
+        print('Invalid heartbeat interval:', argvalue, file=sys.stderr)
         sys.exit(1)
 
 def check_name_or_die(argvalue):
@@ -186,10 +188,11 @@ def check_name_or_die(argvalue):
 
         return name
     except ValueError:
-        print("Host name cannot be empty or contain nonprintable characters")
+        print("Host name cannot be empty or contain nonprintable characters", 
+            sys.stderr)
         sys.exit(1)
     except UnicodeEncodeError:
-        print("Host name must be valid ASCII")
+        print("Host name must be valid ASCII", file=sys.stderr)
         sys.exit(1)
 
 # This is how values are organized in the 'configuration lists' below
@@ -211,9 +214,13 @@ def collapse_value(param):
 def main():
     if '-h' in sys.argv[1:]:
         print(HELP)
-        sys.exit(1)
+        sys.exit(0)
 
-    opts, args = getopt.getopt(sys.argv[1:], 'c:p:t:a:n:D')
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'c:p:t:a:n:D')
+    except getopt.GetoptError:
+        print(USAGE, file=sys.stderr)
+        sys.exit(1)
 
     config_file = '/etc/lnsd.conf'
     port = [15051, None, None]
@@ -224,7 +231,7 @@ def main():
 
     # No non-named arguments are taken.
     if args:
-        print(HELP)
+        print(USAGE, file=sys.stderr)
         sys.exit(1)
 
     for optname, optvalue in opts:
@@ -241,7 +248,7 @@ def main():
         elif optname == '-D':
             daemonize[CMDLINE] = True
         else:
-            print(HELP)
+            print(USAGE, file=sys.stderr)
             sys.exit(1)
 
     config = configparser.ConfigParser()
@@ -264,11 +271,12 @@ def main():
                     daemonize[CONFIGFILE] = False
                 else:
                     print('daemon option in the config file'
-                            ' must be either "true" or "false"')
+                            ' must be either "true" or "false"', 
+                            file=sys.stderr)
                     sys.exit(1)
             else:
                 print('Excess configuration option: "{}" = "{}"'.format(
-                            key, value))
+                            key, value), file=sys.stderr)
                 sys.exit(1)
 
     # Figure out the highest priority values for each of the parameters.

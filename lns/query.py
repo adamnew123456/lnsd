@@ -13,22 +13,29 @@ from lns import query_proto, service
 HELP = """lns-query - Accesses the host-name mapping provided by lnsd.
 Usage:
 
-    lns-query <-a | -i host | -n name | -q>
+    lns-query <-h | -a | -i host | -n name | -q>
 
 Options:
 
+    -h          Show this help message.
     -a          Gets a list of all host-name pairs.
     -i HOST     Gets the name associated with the given IP address.
     -n NAME     Gets the IP address associated with the given name.
     -q          Terminates the server.
 """.strip()
 
+USAGE = 'lns-query <-h | -a | -i host | -n name | -q>'
+
 def main():
     if '-h' in sys.argv[1:]:
         print(HELP)
-        sys.exit(1)
+        sys.exit(0)
 
-    opts, args = getopt.getopt(sys.argv[1:], 'ai:n:q')
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'ai:n:q')
+    except getopt.GetoptError:
+        print(USAGE, file=sys.stderr)
+        sys.exit(1)
 
     ALL, HOST, NAME, QUIT = range(4)
     option = None
@@ -37,31 +44,31 @@ def main():
     for optname, optvalue in opts:
         if optname == '-a':
             if mode is not None:
-                print('Multiple queries not allowed')
+                print('Multiple queries not allowed', file=sys.stderr)
                 sys.exit(1)
             mode = ALL
         elif optname == '-i':
             if mode is not None:
-                print('Multiple queries not allowed')
+                print('Multiple queries not allowed', file=sys.stderr)
             mode = HOST
             option = optvalue
         elif optname == '-n':
             if mode is not None:
-                print('Multiple queries not allowed')
+                print('Multiple queries not allowed', file=sys.stderr)
             mode = NAME
             option = optvalue
         elif optname == '-q':
             mode = QUIT
 
     if mode is None:
-        print(HELP)
+        print(USAGE, file=sys.stderr)
         sys.exit(1)
 
     sock = socket.socket()
     try:
         sock.connect(('localhost', service.SERVICE_PORT))
     except OSError:
-        print('Service is not running')
+        print('Service is not running', file=sys.stderr)
         sys.exit(1)
 
     def return_status_code(code):
