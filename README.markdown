@@ -72,21 +72,6 @@ the following form:
 (Note that it accepts any format which Python's configparser module can - for example,
 comments).
 
-## lnsd SOCKSv5 Proxy
-
-lnsd will also run a SOCKSv5 proxy on your machine, which you can use to connect
-to LAN hosts directly instead of using `lns-query` first. This allows you to configure
-SSH, your web browser, or any other tool which supports a SOCKSv5 proxy to talk to a
-machine that LNS knows about.
-
-All you have to do is:
-
-1. Activate the proxy in SSH, your browser, etc. It runs on `localhost`, port 1080.
-2. Make sure that your tool uses the SOCKS proxy to do DNS resolution.
-3. Whenever you want to visit a LAN host, just type in `host-name.lan`. For example,
-   to SSH to a LAN machine, you can use `ssh -o ProxyCommand='nc -x localhost:1080 %h %p' user@mercury.lan`
-   to SSH into a LAN machine named `mercury`.
-
 # Using lns-query
 
 `lns-query` is the query program which connects to the LNS protocol. It accepts
