@@ -42,16 +42,93 @@ import time
 
 logger = logging.getLogger('reactor')
 
-from . import utils
+class Token:
+    """
+    A unique value, like ``object()``, but which has a nice string 
+    representation.
+
+        >>> A = Token('A')
+        >>> A
+        <A>
+        >>> str(A)
+        '<A>'
+        >>> repr(A)
+        '<A>'
+    """
+    def __init__(self, name):
+        self.name = name
+
+    def __str__(self):
+        return '<' + self.name + '>'
+
+    def __repr__(self):
+        return '<' + self.name + '>'
+
+def to_iterable(x, preferred_type=list):
+    """
+    Converts an object into an object which can be iterated (or, if a
+    preferred type is given, into an object of the preferred type).
+
+        >>> to_iterable(1)
+        [1]
+        >>> to_iterable(1, preferred_type=set)
+        {1}
+        >>> to_iterable(1, preferred_type=tuple)
+        (1,)
+        >>> to_iterable([1])
+        [1]
+        >>> to_iterable((1,))
+        [1]
+        >>> to_iterable({1})
+        [1]
+    """
+    try:
+        iter(x)
+        return preferred_type(x)
+    except TypeError:
+        return preferred_type([x])
+
+def to_file_descriptor(fobj):
+    """
+    Converts an object to a file descriptor. The given object can be either:
+
+     - An integer file descriptor
+     - An object with a ``fileno()`` method.
+
+    :raises ValueError: If the given object cannot be converted.
+
+        >>> class Descriptable:
+        ...     def fileno(self):
+        ...         return 42
+        ...
+        >>> to_file_descriptor(Descriptable())
+        42
+        >>> to_file_descriptor(42)
+        42
+        >>> try:
+        ...     to_file_descriptor(object())
+        ... except ValueError:
+        ...     print('Failure')
+        ...
+        Failure
+    """
+    if isinstance(fobj, int):
+        return fobj
+    elif hasattr(fobj, 'fileno'):
+        return fobj.fileno()
+    else:
+        raise ValueError(
+            '{} cannot be converted to a file descriptor'.format(fobj))
+
 
 # select.epoll takes time in seconds as a float, while select.poll takes an
 # integer counting milliseconds. All reactors here use the epoll pattern, so
 # we have to convert float seconds into integer milliseconds.
 MSECS_PER_SECOND = 1000
 
-READABLE = utils.Token('READABLE')
-WRITABLE = utils.Token('WRITABLE')
-ERROR = utils.Token('ERROR')
+READABLE = Token('READABLE')
+WRITABLE = Token('WRITABLE')
+ERROR = Token('ERROR')
 
 class StepCallbackProcessor:
     """
@@ -205,8 +282,8 @@ class PollLikeReactor(StepCallbackProcessor):
         Note that the availalbe events are :const:`READABLE`,
         :const:`WRITABLE`, and :const:`ERROR`.
         """
-        fd = utils.to_file_descriptor(fobj)
-        events = utils.to_iterable(events, set)
+        fd = to_file_descriptor(fobj)
+        events = to_iterable(events, set)
 
         if fd not in self.fd_events:
             self.fd_events[fd] = events
@@ -231,11 +308,11 @@ class PollLikeReactor(StepCallbackProcessor):
         Note that the availalbe events are :const:`READABLE`,
         :const:`WRITABLE`, and :const:`ERROR`.
         """
-        fd = utils.to_file_descriptor(fobj)
+        fd = to_file_descriptor(fobj)
         if events is None:
             events = self.fd_events[fd]
         else:
-            events = utils.to_iterable(events, set)
+            events = to_iterable(events, set)
 
         remaining_events = self.fd_events[fd] - events
         self.fd_events[fd] = remaining_events
@@ -383,8 +460,8 @@ else:
             Note that the availalbe events are :const:`READABLE`,
             :const:`WRITABLE`, and :const:`ERROR`.
             """
-            fd = utils.to_file_descriptor(fobj)
-            events = utils.to_iterable(events, set)
+            fd = to_file_descriptor(fobj)
+            events = to_iterable(events, set)
 
             if READABLE in events:
                 self.readers[fd] = callback
@@ -406,11 +483,11 @@ else:
             Note that the availalbe events are :const:`READABLE`,
             :const:`WRITABLE`, and :const:`ERROR`.
             """
-            fd = utils.to_file_descriptor(fobj)
+            fd = to_file_descriptor(fobj)
             if events is None:
                 events = {READABLE, WRITABLE, ERROR}
             else:
-                events = utils.to_iterable(events, set)
+                events = to_iterable(events, set)
 
             if READABLE in events and fd in self.readers:
                 del self.readers[fd]
