@@ -11,10 +11,7 @@ class NetworkProtocol(unittest.TestCase):
     def roundtrip(self, message):
         output = message.serialize()
 
-        message_class = net_proto.get_message_class(output)
-        self.assertTrue(message_class.parses(output))
-
-        output_message = message_class.unserialize(output)
+        output_message = net_proto.Announce.unserialize(output)
         self.assertEqual(message, output_message)
 
     def test_announce(self):
@@ -31,9 +28,6 @@ class NetworkProtocol(unittest.TestCase):
         # This is bad because empty hosts are not allowed
         with self.assertRaises(ValueError):
             self.roundtrip(net_proto.Announce(''))
-
-    def test_conflict(self):
-        self.roundtrip(net_proto.Conflict())
 
 class ControlProtocol(unittest.TestCase):
     BAD_HOSTNAMES = [
