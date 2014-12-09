@@ -32,7 +32,7 @@ the following command line options:
     lnsd - An implementation of the LAN Naming Service protocol.
     Usage:
 
-        lnsd [-c config] [-p port] [-h heartbeat] [-t timeout] [-n name]
+        lnsd [-c config] [-p [control-port]:[network-port]] [-n name]
 
     Options:
 
@@ -42,13 +42,11 @@ the following command line options:
                         contents of the configuration file. By default, the 
                         configuration file is located at '/etc/lnsd.conf'
 
-        -p PORT         The port to bind to, 15051 by default.
-
-        -t TIMEOUT      How many seconds to wait for an ANNOUNCE message before
-                        declaring a host dead. By default, the timeout is 30 seconds.
-
-        -a HEARTBEAT    How often, in seconds, to send an ANNOUNCE message to peers.
-                        By default, the interval is 10 seconds.
+        -p PORT         The external port (default: 15051) and internal port 
+                        (default: 10771) to bind to. The external port is opened
+                        up to receive Announce messages from remote machines,
+                        while the internal port is used for control messages to
+                        the server.
 
         -n NAME         The name that lnsd will try to assign to this machine. The 
                         default is the system's hostname.
@@ -64,8 +62,6 @@ the following form:
 
     [lnsd]
     port=15051
-    timeout=30
-    heartbeat=10
     hostname=foo.example
     daemonize=false
 
@@ -80,13 +76,15 @@ the following command line options:
     lns-query - Accesses the host-name mapping provided by lnsd.
     Usage:
 
-        lns-query <-a | -i host | -n name | -q>
+        lns-query <-a | -i host | -n name | -q> [-p control_port]
 
     Options:
 
         -a          Gets a list of all host-name pairs.
         -i HOST     Gets the name associated with the given IP address.
         -n NAME     Gets the IP address associated with the given name.
+        -p PORT     The port number of the internal control port to connect to
+                    (default: 10771).
         -q          Terminates the server.
 
 Consider the following network:
