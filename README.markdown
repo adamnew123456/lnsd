@@ -93,20 +93,21 @@ Consider the following network:
 
 - 192.168.1.1 -> A
 - 192.168.1.2 -> B
-- 192.168.1.3 -> C
+- 192.168.1.3 -> A
 
 With that network in mind, the following queries will produce the following session:
 
     $ lns-query -a
     192.168.1.1 A
     192.168.1.2 B
-    192.168.1.3 C
+    192.168.1.3 A
     $ lns-query -i 192.168.1.1
     A
     $ lns-query -i 192.168.1.4
-    
+    $ lns-query -n A
+    192.168.1.1
+    192.168.1.3
     $ lns-query -n B
     192.168.1.2
-    $ lns-query -n D
-
+    $ lns-query -n C
     $ lns-query -q  # Terminates the server

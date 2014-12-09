@@ -7,11 +7,12 @@ query the host-name mapping. There are four types of messages, which are
 ``HOST``, ``IP``, ``GET-ALL``, ``NAME-IP-MAPPING`` and ``QUIT``.
 
 A ``HOST`` message references a hostname, and when sent to the server, it
-queries the host-name mapping for that hostname and produces an ``IP`` packet.
+queries the host-name mapping for that hostname and produces an ``IP`` packet,
+which contains a list of IP addresses matching that host.
 
 A ``IP`` message references an IP address, and when sent to the server, it
 queries the host-name mapping for that IP address, and produces a ``HOST``
-packet.
+packet containing the hostname assigned to that IP address.
 
 A ``GET-ALL`` message is sent to the server to query the entire host-name mapping,
 to which the server replies with a ``NAME-IP-MAPPING`` message indicating all
@@ -102,7 +103,7 @@ class Host(namedtuple('Host', ['hostname'])):
             net_proto.verify_hostname(self.hostname.encode('ascii'))
         return length_encode_json({'type': 'name', 'hostname': self.hostname})
         
-class IP(namedtuple('IP', ['ip'])):
+class IP(namedtuple('IP', ['ip_addrs'])):
     TYPE = 'ip'
 
     @staticmethod
@@ -123,15 +124,16 @@ class IP(namedtuple('IP', ['ip'])):
         if data['type'] != 'ip':
             raise ValueError('Got type {}, expected ip'.format(data['type']))
 
-        if data['ip'] is not None:
-            verify_ipv4_address(data['ip'])
-        return IP(data['ip'])
+        for ip_addr in data['ip_addrs']:
+            verify_ipv4_address(ip_addr)
+
+        return IP(data['ip_addrs'])
 
     def serialize(self):
         """
         Produces a bytestring from this message.
         """
-        return length_encode_json({'type': 'ip', 'ip': self.ip})
+        return length_encode_json({'type': 'ip', 'ip_addrs': self.ip_addrs})
 
 class GetAll(namedtuple('GetAll', [])):
     TYPE = 'get-all'
@@ -183,9 +185,11 @@ class NameIPMapping(namedtuple('NameIPMapping', ['host_to_ips'])):
         if data['type'] != 'nameipmapping':
             raise ValueError('Got type {}, expected nameipmapping'.format(data['type']))
 
-        for name, ip in data['name_ips'].items():
+        for name, ip_addrs in data['name_ips'].items():
             net_proto.verify_hostname(name.encode('ascii'))
-            verify_ipv4_address(ip)
+            for ip in ip_addrs:
+                verify_ipv4_address(ip)
+
         return NameIPMapping(data['name_ips'])
 
     def serialize(self):
@@ -289,14 +293,14 @@ class ClientHandler:
         message = Host(host)
         self.command_sock.send(message.serialize())
         reply = self.read_json_message(IP)
-        return reply.ip
+        return reply.ip_addrs
 
     def get_host(self, ip):
         """
         Gets the host corresponding to an IP address. Note that the return
         value may be ``None`` if no host corresponds to the given address.
         """
-        message = IP(ip)
+        message = IP([ip])
         self.command_sock.send(message.serialize())
         reply = self.read_json_message(Host)
         return reply.hostname
@@ -323,7 +327,6 @@ class ProtocolHandler:
         self.client_buffers = {}
 
         self.network_handler = network_handler
-        self.CLOSE_LIST = {}
 
     def open(self):
         """
@@ -370,6 +373,39 @@ class ProtocolHandler:
         del self.clients[client_fd]
         del self.client_buffers[client_fd]
 
+    def pull_messages(self, client_fd, client_sock):
+        """
+        Pulls out messages from the client's buffer, until there aren't any
+        full messages to remove.
+        """
+        client_buffer_stream = utils.TransactionalBytesIO(self.client_buffers[client_fd])
+        while True:
+            json_message = None
+            with client_buffer_stream.get_transaction() as txn:
+                txn_stream = txn.get_stream()
+                try:
+                    # Note that we don't want to affect the read position if
+                    # no message is there, so use the transaction to save
+                    # the position and only update it when we're sure we
+                    # have a message.
+                    json_message = get_length_encoded_json(txn_stream)
+                    txn.commit()
+                except EOFError:
+                    txn.abort()
+                    break
+                except ValueError:
+                    pass
+
+            # This indicates an invalid message, because we read the whole
+            if json_message is None:
+                continue
+
+            message_class = get_message_class(json_message)
+            message = message_class.unserialize(json_message)
+            self.handle_message(client_sock, message)
+
+        self.client_buffers[client_fd] = client_buffer_stream.read()
+
     def on_message_recv(self, event):
         """
         Handles a message sent by a client.
@@ -381,30 +417,11 @@ class ProtocolHandler:
             if not chunk:
                 self.close_client(client_sock)
                 return
-
             self.client_buffers[client_fd] += chunk
-            client_buffer_stream = utils.TransactionalBytesIO(self.client_buffers[client_fd])
-            while True:
-                json_message = None
-                with client_buffer_stream.get_transaction() as txn:
-                    txn_stream = txn.get_stream()
-                    try:
-                        json_message = get_length_encoded_json(txn_stream)
-                        txn.commit()
-                    except EOFError:
-                        txn.abort()
-                        break
-
-                if json_message is None:
-                    continue
-
-                message_class = get_message_class(json_message)
-                message = message_class.unserialize(json_message)
-
-                self.handle_message(client_sock, message)
-
-            self.client_buffers[client_fd] = client_buffer_stream.read()
+            self.pull_messages(client_fd, client_sock)
         except OSError as ex:
+            # This happened occasionally during testing, causing the tests to
+            # crash
             if client_sock.fileno() != -1:
                 self.close_client(client_sock)
 
@@ -414,11 +431,12 @@ class ProtocolHandler:
         """
         reply = None
         if isinstance(message, Host):
-            ip_addr = self.network_handler.query_host(message.hostname)
-            reply = IP(ip_addr)
+            ip_addrs = self.network_handler.query_host(message.hostname)
+            reply = IP(ip_addrs)
         elif isinstance(message, IP):
-            hostname = self.network_handler.query_ip(message.ip)
-            reply = Host(hostname)
+            if len(message.ip_addrs) == 1:
+                hostname = self.network_handler.query_ip(message.ip_addrs[0])
+                reply = Host(hostname)
         elif isinstance(message, GetAll):
             host_ip_mapping = self.network_handler.get_host_ip_map()
             reply = NameIPMapping(host_ip_mapping)

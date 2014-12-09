@@ -16,7 +16,7 @@ The following types of interactions are possible between the application and `ln
 
 
 - Application: HOST[hostname]
-- `lnsd`: IP[ip or `null`]
+- `lnsd`: IP[ip list]
 
 - Application: IP[ip]
 - `lnsd`: HOST[hostname or `null`]
@@ -53,16 +53,17 @@ be `null`. However, the application *cannot* send a *HOST* message with a `null`
 
 ### IP
 
-An *IP* structure indicates an IPv4 IP address, which looks like the following:
+An *IP* structure indicates a group of IPv4 IP addresses, which looks like the 
+following:
 
     {
         'type': 'ip',
-        'ip': '1.2.3.4'
+        'ip': ['1.2.3.4', '5.6.7.8']
     }
 
 Note that, when `lnsd` response with a *IP* message, the *ip* field may
-be `null`. However, the application *cannot* send a *IP* message with a `null`
-*ip* field.
+be `null`. However, the application *cannot* send a *IP* message with more than
+one IP address.
 
 ### GET-ALL
 
@@ -81,11 +82,13 @@ IP addresses. It looks like the following:'
     {
         'type': 'nameipmapping',
         'name_ips': {
-            'host_1': 'ip1',
-            'host_2': 'ip2',
+            'host_1': ['ip1', 'ip2'],
+            'host_2': ['ip3'],
             ...
         }
     }
+
+Note that no hostname will have zero IP addresses associated with it.
 
 ### QUIT
 

@@ -2,12 +2,13 @@
 Ensures that the protocol handlers for the control protocol and the network
 protocol work as expected.
 """
+from collections import defaultdict
 import socket
 import threading
 import traceback
 import unittest
 
-from lns_ng import bidict, control_proto, reactor
+from lns_ng import control_proto, reactor
 
 # Change this to some port that is available on your machine, so that the
 # control protocol handler and the control protocol client can communicate
@@ -29,16 +30,19 @@ class MockNetworkHandler:
     provides static data for testing.
     """
     def __init__(self):
-        self.host_ips = bidict.bidict({'a': '1.2.3.4', 'b': '5.6.7.8'})
+        self.host_ips = {'a': ['1.2.3.4', '9.10.11.12'], 
+            'b': ['5.6.7.8'], 'c': ['13.14.15.16']}
+        self.ip_hosts = {'1.2.3.4': 'a', '5.6.7.8': 'b', '9.10.11.12': 'a',
+            '13.14.15.16': 'c'}
 
     def query_host(self, host):
-        return self.host_ips.get(host, None)
+        return self.host_ips.get(host, [])
 
     def query_ip(self, ip):
-        return (~self.host_ips).get(ip, None)
+        return self.ip_hosts.get(ip, None)
 
     def get_host_ip_map(self):
-        return dict(self.host_ips)
+        return self.host_ips.copy()
 
 class TestNetworkProtocol(unittest.TestCase):
     def setUp(self):
@@ -69,9 +73,9 @@ class TestNetworkProtocol(unittest.TestCase):
         """
         Queries a known and an unknown host name.
         """
-        self.assertEqual(self.client.get_ip('a'), '1.2.3.4')
-        self.assertEqual(self.client.get_ip('b'), '5.6.7.8')
-        self.assertEqual(self.client.get_ip('nonexistent'), None)
+        self.assertEqual(self.client.get_ip('a'), ['1.2.3.4', '9.10.11.12'])
+        self.assertEqual(self.client.get_ip('b'), ['5.6.7.8'])
+        self.assertEqual(self.client.get_ip('nonexistent'), [])
 
     def test_query_ip(self):
         """
@@ -79,6 +83,8 @@ class TestNetworkProtocol(unittest.TestCase):
         """
         self.assertEqual(self.client.get_host('1.2.3.4'), 'a')
         self.assertEqual(self.client.get_host('5.6.7.8'), 'b')
+        self.assertEqual(self.client.get_host('9.10.11.12'), 'a')
+        self.assertEqual(self.client.get_host('13.14.15.16'), 'c')
         self.assertEqual(self.client.get_host('0.0.0.0'), None)
 
     def test_host_ip_mapping(self):
@@ -86,7 +92,7 @@ class TestNetworkProtocol(unittest.TestCase):
         Queries the mapping from hostnames to IP addresses.
         """
         self.assertEqual(self.client.get_host_ip_mapping(), 
-            {'a': '1.2.3.4', 'b': '5.6.7.8'})
+            {'a': ['1.2.3.4', '9.10.11.12'], 'b': ['5.6.7.8'], 'c': ['13.14.15.16']})
 
 if __name__ == '__main__':
     unittest.main()

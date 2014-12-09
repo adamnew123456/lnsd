@@ -71,26 +71,27 @@ class ControlProtocol(unittest.TestCase):
                 self.roundtrip(control_proto.Host(bad_host))
 
     def test_ip(self):
-        self.roundtrip(control_proto.IP('1.2.3.4'))
+        self.roundtrip(control_proto.IP(['1.2.3.4', '5.6.7.8']))
 
         for bad_ip in self.BAD_IPS:
             with self.assertRaises(ValueError):
-                self.roundtrip(control_proto.IP(bad_ip))
+                self.roundtrip(control_proto.IP([bad_ip]))
 
     def test_get_all(self):
         self.roundtrip(control_proto.GetAll())
 
     def test_name_ip_mapping(self):
         self.roundtrip(control_proto.NameIPMapping({}))
-        self.roundtrip(control_proto.NameIPMapping({'a': '1.2.3.4', 'b': '5.6.7.8'}))
+        self.roundtrip(control_proto.NameIPMapping({
+            'a': ['1.2.3.4', '9.10.11.12'], 'b': ['5.6.7.8']}))
 
         for bad_host in self.BAD_HOSTNAMES:
             with self.assertRaises(ValueError):
-                self.roundtrip(control_proto.NameIPMapping({bad_host: '1.2.3.4'}))
+                self.roundtrip(control_proto.NameIPMapping({bad_host: ['1.2.3.4']}))
 
         for bad_ip in self.BAD_IPS:
             with self.assertRaises(ValueError):
-                self.roundtrip(control_proto.NameIPMapping({'a': bad_ip}))
+                self.roundtrip(control_proto.NameIPMapping({'a': [bad_ip]}))
 
 if __name__ == '__main__':
     unittest.main()
