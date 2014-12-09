@@ -79,10 +79,11 @@ class TransactionalBytesIO(io.BytesIO):
             Commits the transaction, applying the changes to the underling
             stream.
             """
-            self.parent.truncate(0)
-            self.parent.seek(0)
+            if self.parent.getvalue() != self.stream.getvalue():
+                self.parent.truncate(0)
+                self.parent.seek(0)
 
-            self.parent.write(self.stream.getvalue())
+                self.parent.write(self.stream.getvalue())
             self.parent.seek(self.stream.tell())
 
         def abort(self):
