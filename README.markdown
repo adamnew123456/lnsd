@@ -39,8 +39,8 @@ the following command line options:
         -c CONFIG       Config is the name of an INI-style configuration 
                         file to load configuration values from. Note that
                         any options provided on the command line override the
-                        contents of the configuration file. By default, the 
-                        configuration file is located at '/etc/lnsd.conf'
+                        contents of the configuration file. By default, no
+                        configuration file is processed.
 
         -p PORT         The external port (default: 15051) and internal port 
                         (default: 10771) to bind to. The external port is opened
@@ -61,7 +61,8 @@ another configuration file provided by the `-c` flag. The configuration file has
 the following form:
 
     [lnsd]
-    port=15051
+    net_port=15051
+    control_port=10771
     hostname=foo.example
     daemonize=false
 
