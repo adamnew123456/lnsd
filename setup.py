@@ -8,7 +8,7 @@ setup(
                 ['lnsd = lns.lnsd:main', 'lns-query = lns.query:main']
         },
         author='Adam Marchetti',
-        version='0.3.1',
+        version='0.4',
         description='LAN Naming System',
         author_email='adamnew123456@gmail.com',
         url='http://github.com/adamnew123456/lnsd',
