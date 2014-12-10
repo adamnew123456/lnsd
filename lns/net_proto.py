@@ -171,7 +171,7 @@ class ProtocolHandler:
 
             peer_name = self.ip_to_host[peer]
             del self.ip_to_host[peer]
-            self.host_to_ips[peer].remove(peer_name)
+            self.host_to_ips[peer_name].remove(peer)
 
     def get_time_until_next_announce(self):
         """
