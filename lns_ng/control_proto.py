@@ -325,8 +325,15 @@ class ProtocolHandler:
         self.server_sock = None
         self.clients = {}
         self.client_buffers = {}
+        self.done = False
 
         self.network_handler = network_handler
+
+    def is_running(self):
+        """
+        Returns whether or not this control server is still active.
+        """
+        return not self.done
 
     def open(self):
         """
@@ -440,6 +447,8 @@ class ProtocolHandler:
         elif isinstance(message, GetAll):
             host_ip_mapping = self.network_handler.get_host_ip_map()
             reply = NameIPMapping(host_ip_mapping)
+        elif isinstance(message, Quit):
+            self.done = True
 
         if reply is not None:
             client.sendall(reply.serialize())
