@@ -40,11 +40,11 @@ import logging
 import select
 import time
 
-logger = logging.getLogger('reactor')
+LOGGER = logging.getLogger('reactor')
 
 class Token:
     """
-    A unique value, like ``object()``, but which has a nice string 
+    A unique value, like ``object()``, but which has a nice string
     representation.
 
         >>> A = Token('A')
@@ -190,10 +190,10 @@ class PollLikeReactor(StepCallbackProcessor):
         Gets any outstanding events, and runs all the callbacks bound to
         those events.
 
-        The timeout is a ``float`` (or an ``int``), and can be separated 
+        The timeout is a ``float`` (or an ``int``), and can be separated
         into three different cases:
 
-        - If not given, or negative, then this method will wait indefinitely 
+        - If not given, or negative, then this method will wait indefinitely
           for events.
         - If zero, this method will return immediately, regardless of
           whether or not it processed any events.
@@ -321,14 +321,14 @@ class PollLikeReactor(StepCallbackProcessor):
             self.pollster.unregister(fd)
             del self.fd_events[fd]
         else:
-            self.pollster.modify(fd, 
+            self.pollster.modify(fd,
                 self._event_set_to_flags(remaining_events))
 
         for event in events:
             del self.callbacks[fd, event]
 
 if hasattr(select, 'epoll'):
-    logger.debug('Linux platform detected - using epoll() reactor')
+    LOGGER.debug('Linux platform detected - using epoll() reactor')
     class LinuxReactor(PollLikeReactor):
         """
         This provides a reactor for the epoll function available on Linux.
@@ -339,7 +339,7 @@ if hasattr(select, 'epoll'):
 
     Reactor = LinuxReactor
 elif hasattr(select, 'poll'):
-    logger.debug('Non-Linux POSIX platform detected - using poll() reactor')
+    LOGGER.debug('Non-Linux POSIX platform detected - using poll() reactor')
     class PollReactor(PollLikeReactor):
         """
         This provides a reactor for the poll functions available under POSIX.
@@ -361,7 +361,7 @@ elif hasattr(select, 'poll'):
 
     Reactor = PollReactor
 else:
-    logger.debug('Detected weakly-POSIX platform - using select() reactor')
+    LOGGER.debug('Detected weakly-POSIX platform - using select() reactor')
     class SelectReactor(StepCallbackProcessor):
         """
         This provides a reactor for systems lacking a poll-equivalent API.
@@ -388,7 +388,7 @@ else:
             Gets any outstanding events, and runs all the callbacks bound to
             those events.
 
-            The timeout is a ``float`` (or an ``int``), and can be separated 
+            The timeout is a ``float`` (or an ``int``), and can be separated
             into three different cases:
 
             - If not given, then this method will wait indefinitely for
@@ -421,7 +421,7 @@ else:
             for reader in rlist:
                 callback = self.readers.get(reader, EMPTY_CALLBACK)
                 callback((reader, READABLE))
-            
+
             for writer in wlist:
                 callback = self.writers.get(writer, EMPTY_CALLBACK)
                 callback((writer, WRITABLE))

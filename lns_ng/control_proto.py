@@ -3,7 +3,7 @@ Control Protocol
 ----------------
 
 This implements the inner-facing side of lnsd, which allows the local host to
-query the host-name mapping. There are four types of messages, which are 
+query the host-name mapping. There are four types of messages, which are
 ``HOST``, ``IP``, ``GET-ALL``, ``NAME-IP-MAPPING`` and ``QUIT``.
 
 A ``HOST`` message references a hostname, and when sent to the server, it
@@ -14,9 +14,9 @@ A ``IP`` message references an IP address, and when sent to the server, it
 queries the host-name mapping for that IP address, and produces a ``HOST``
 packet containing the hostname assigned to that IP address.
 
-A ``GET-ALL`` message is sent to the server to query the entire host-name mapping,
-to which the server replies with a ``NAME-IP-MAPPING`` message indicating all
-of the host-name mapping.
+A ``GET-ALL`` message is sent to the server to query the entire host-name
+mapping, to which the server replies with a ``NAME-IP-MAPPING`` message
+indicating all of the host-name mapping.
 
 A ``QUIT`` message causes the server to terminate.
 """
@@ -75,7 +75,7 @@ class Host(namedtuple('Host', ['hostname'])):
     @staticmethod
     def parses(data):
         """
-        Returns ``True`` if this class can parse the given dictionary, or 
+        Returns ``True`` if this class can parse the given dictionary, or
         ``False`` otherwise.
         """
         return data['type'] == 'name'
@@ -85,7 +85,7 @@ class Host(namedtuple('Host', ['hostname'])):
         """
         Produces a :class:`Host` message from the contents of a dictionary.
 
-        :raises EOFError: If the stream is not long enough, 
+        :raises EOFError: If the stream is not long enough,
         """
         if data['type'] != 'name':
             raise ValueError('Got type {}, expected name'.format(data['type']))
@@ -102,14 +102,14 @@ class Host(namedtuple('Host', ['hostname'])):
         if self.hostname is not None:
             net_proto.verify_hostname(self.hostname.encode('ascii'))
         return length_encode_json({'type': 'name', 'hostname': self.hostname})
-        
+
 class IP(namedtuple('IP', ['ip_addrs'])):
     TYPE = 'ip'
 
     @staticmethod
     def parses(data):
         """
-        Returns ``True`` if this class can parse the given dictionary, or 
+        Returns ``True`` if this class can parse the given dictionary, or
         ``False`` otherwise.
         """
         return data['type'] == 'ip'
@@ -119,7 +119,7 @@ class IP(namedtuple('IP', ['ip_addrs'])):
         """
         Produces a :class:`IP` message from the contents of a dictionary.
 
-        :raises EOFError: If the stream is not long enough, 
+        :raises EOFError: If the stream is not long enough,
         """
         if data['type'] != 'ip':
             raise ValueError('Got type {}, expected ip'.format(data['type']))
@@ -141,7 +141,7 @@ class GetAll(namedtuple('GetAll', [])):
     @staticmethod
     def parses(data):
         """
-        Returns ``True`` if this class can parse the given dictionary, or 
+        Returns ``True`` if this class can parse the given dictionary, or
         ``False`` otherwise.
         """
         return data['type'] == 'get-all'
@@ -151,10 +151,11 @@ class GetAll(namedtuple('GetAll', [])):
         """
         Produces a :class:`GetAll` message from the contents of a dictionary.
 
-        :raises EOFError: If the stream is not long enough, 
+        :raises EOFError: If the stream is not long enough,
         """
         if data['type'] != 'get-all':
-            raise ValueError('Got type {}, expected get-all'.format(data['type']))
+            raise ValueError('Got type {}, expected get-all'.format(
+                data['type']))
 
         return GetAll()
 
@@ -170,7 +171,7 @@ class NameIPMapping(namedtuple('NameIPMapping', ['host_to_ips'])):
     @staticmethod
     def parses(data):
         """
-        Returns ``True`` if this class can parse the given dictionary, or 
+        Returns ``True`` if this class can parse the given dictionary, or
         ``False`` otherwise.
         """
         return data['type'] == 'nameipmapping'
@@ -180,10 +181,11 @@ class NameIPMapping(namedtuple('NameIPMapping', ['host_to_ips'])):
         """
         Produces a :class:`GetAll` message from the contents of a dictionary.
 
-        :raises EOFError: If the stream is not long enough, 
+        :raises EOFError: If the stream is not long enough,
         """
         if data['type'] != 'nameipmapping':
-            raise ValueError('Got type {}, expected nameipmapping'.format(data['type']))
+            raise ValueError('Got type {}, expected nameipmapping'.format(
+                data['type']))
 
         for name, ip_addrs in data['name_ips'].items():
             net_proto.verify_hostname(name.encode('ascii'))
@@ -196,7 +198,8 @@ class NameIPMapping(namedtuple('NameIPMapping', ['host_to_ips'])):
         """
         Produces a bytestring from this message.
         """
-        return length_encode_json({'type': 'nameipmapping', 'name_ips': self.host_to_ips})
+        return length_encode_json({'type': 'nameipmapping',
+            'name_ips': self.host_to_ips})
 
 class Quit(namedtuple('Quit', [])):
     TYPE = 'quit'
@@ -204,7 +207,7 @@ class Quit(namedtuple('Quit', [])):
     @staticmethod
     def parses(data):
         """
-        Returns ``True`` if this class can parse the given dictionary, or 
+        Returns ``True`` if this class can parse the given dictionary, or
         ``False`` otherwise.
         """
         return data['type'] == 'quit'
@@ -214,7 +217,7 @@ class Quit(namedtuple('Quit', [])):
         """
         Produces a :class:`Quit` message from the contents of a dictionary.
 
-        :raises EOFError: If the stream is not long enough, 
+        :raises EOFError: If the stream is not long enough,
         """
         if data['type'] != 'quit':
             raise ValueError('Got type {}, expected quit'.format(data['type']))
@@ -258,8 +261,9 @@ class ClientHandler:
         recv_message_raw = b''
         while len(recv_message_raw) < length:
             recv_message_raw += self.command_sock.recv(utils.BUFFER_SIZE)
-        
-        json_data = get_length_encoded_json(io.BytesIO(length_header + recv_message_raw))
+
+        json_data = get_length_encoded_json(
+            io.BytesIO(length_header + recv_message_raw))
         message_class = get_message_class(json_data)
         if message_class is not expected_message_type:
             raise ValueError('Expected a {}, but got a {}'.format(
@@ -319,8 +323,8 @@ class ProtocolHandler:
     Handles clients on the local machine, which connect to query the host-ip
     mapping in different ways.
     """
-    def __init__(self, network_handler, reactor, port=CONTROL_PORT):
-        self.reactor = reactor
+    def __init__(self, network_handler, a_reactor, port=CONTROL_PORT):
+        self.reactor = a_reactor
         self.port = port
         self.server_sock = None
         self.clients = {}
@@ -385,7 +389,8 @@ class ProtocolHandler:
         Pulls out messages from the client's buffer, until there aren't any
         full messages to remove.
         """
-        client_buffer_stream = utils.TransactionalBytesIO(self.client_buffers[client_fd])
+        client_buffer_stream = utils.TransactionalBytesIO(
+            self.client_buffers[client_fd])
         while True:
             json_message = None
             with client_buffer_stream.get_transaction() as txn:
@@ -426,7 +431,7 @@ class ProtocolHandler:
                 return
             self.client_buffers[client_fd] += chunk
             self.pull_messages(client_fd, client_sock)
-        except OSError as ex:
+        except OSError:
             # This happened occasionally during testing, causing the tests to
             # crash
             if client_sock.fileno() != -1:

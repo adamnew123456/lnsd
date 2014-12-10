@@ -35,8 +35,8 @@ def verify_hostname(hostname_bytes):
     raises a :class:`ValueError`.
     """
     if not hostname_bytes or len(hostname_bytes) > PACKET_SIZE - 1:
-        raise ValueError('Encoded hostname is not between 0 and {} bytes'.format(
-            PACKET_SIZE - 1))
+        raise ValueError('Encoded hostname is not between 0 and {} bytes'.
+            format(PACKET_SIZE - 1))
 
     for byte in hostname_bytes:
         if byte < 32 or byte > 126:
@@ -46,7 +46,7 @@ def verify_hostname(hostname_bytes):
 
 class Announce(namedtuple('Announce', ['hostname'])):
     HEADER = 0x01
-    
+
     @staticmethod
     def parses(buffer):
         """
@@ -66,8 +66,8 @@ class Announce(namedtuple('Announce', ['hostname'])):
 
         header, buffer = buffer[0], buffer[1:]
         if header != Announce.HEADER:
-            raise ValueError('Header byte incorrect - got {}, expected 0x01'.format(
-                hex(header)))
+            raise ValueError('Header byte incorrect - got {}, expected 0x01'.
+                format(hex(header)))
 
         first_nul = buffer.find(b'\x00')
         if first_nul == -1:
@@ -82,8 +82,8 @@ class Announce(namedtuple('Announce', ['hostname'])):
         """
         raw_hostname = self.hostname.encode('ascii')
         if len(raw_hostname) > PACKET_SIZE - 1:
-            raise ValueError('Hostname too long - it can be {} bytes at most'.format(
-                PACKET_SIZE - 1))
+            raise ValueError('Hostname too long - it can be {} bytes at most'.
+                format(PACKET_SIZE - 1))
 
         return b'\x01' + raw_hostname.ljust(PACKET_SIZE - 1, b'\x00')
 
@@ -92,8 +92,8 @@ class ProtocolHandler:
     Handles remote LNS servers, sending out Announce messages and caching them,
     while periodically sending out its own Announce message.
     """
-    def __init__(self, reactor, hostname, port=NET_PORT):
-        self.reactor = reactor
+    def __init__(self, a_reactor, hostname, port=NET_PORT):
+        self.reactor = a_reactor
         self.port = port
         self.server_sock = None
         self.hostname = hostname
@@ -113,8 +113,9 @@ class ProtocolHandler:
         self.server_sock.bind(('255.255.255.255', self.port))
         self.reactor.bind(self.server_sock, reactor.READABLE, self.on_message)
         self.reactor.add_step_callback(self.on_announce_timeout)
-        
-        # Go ahead and do our first announce, so that we appear on the network ASAP
+
+        # Go ahead and do our first announce, so that we appear on the
+        # network ASAP
         self.on_announce_timeout()
 
     def close(self):
@@ -146,16 +147,16 @@ class ProtocolHandler:
         This sends out a new announce message, and drops any clients whose last
         announce was too far back in time.
         """
-        utils.sendto_all(self.server_sock, Announce(self.hostname).serialize(), 
+        utils.sendto_all(self.server_sock, Announce(self.hostname).serialize(),
             ('255.255.255.255', self.port))
         self.last_ping_time = time.time()
 
         now = time.time()
-        to_drop = [ peer 
+        to_drop = [peer
             for peer, last_ping_time in self.peer_last_ping_time.items()
             if now - last_ping_time > ANNOUNCE_TTL
         ]
-            
+
         for peer in to_drop:
             del self.peer_last_ping_time[peer]
             del self.peer_buffers[peer]
@@ -196,9 +197,10 @@ class ProtocolHandler:
 
     def on_message(self):
         """
-        Retrieves data from the server socket, and saves it into the peer's buffer,
-        possibly handling any complete messages in that peer's buffer.
+        Retrieves data from the server socket, and saves it into the peer's
+        buffer, possibly handling any complete messages in that peer's
+        buffer.
         """
-        data, (host, port) = self.server_sock.recvfrom(PACKET_SIZE)
+        data, (host, _) = self.server_sock.recvfrom(PACKET_SIZE)
         self.peer_buffers[host] += data
         self.handle_messages(host)

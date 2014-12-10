@@ -8,14 +8,15 @@ import getopt
 import socket
 import sys
 
-from lns import daemon, control_proto, net_proto, reactor
+from lns_ng import daemon, control_proto, net_proto, reactor
 
 class LNSDaemon(daemon.Daemon):
     def run(self, hostname, control_port, network_port):
         my_reactor = reactor.Reactor()
-        net_handler = net_proto.ProtocolHandler(my_reactor, hostname, port=network_port)
-        control_handler = control_proto.ProtocolHandler(net_handler, my_reactor, 
-            port=control_port)
+        net_handler = net_proto.ProtocolHandler(my_reactor, hostname,
+            port=network_port)
+        control_handler = control_proto.ProtocolHandler(net_handler,
+            my_reactor, port=control_port)
 
         net_handler.open()
         control_handler.open()
@@ -32,27 +33,27 @@ Usage:
 
 Options:
 
-    -c CONFIG       
-        Config is the name of an INI-style configuration file to load 
-        configuration values from. Note that any options provided on the 
-        command line override the contents of the configuration file. By 
+    -c CONFIG
+        Config is the name of an INI-style configuration file to load
+        configuration values from. Note that any options provided on the
+        command line override the contents of the configuration file. By
         default, no configuration file is processed.
 
     -p [CONTROL_PORT]:[NETWORK_PORT]
-        The external port (default: 15051) and internal port (default: 10771) 
-        to bind to. The external port is opened up to receive Announce 
-        messages from remote machines, while the internal port is used for 
+        The external port (default: 15051) and internal port (default: 10771)
+        to bind to. The external port is opened up to receive Announce
+        messages from remote machines, while the internal port is used for
         control messages to the server.
 
-    -n NAME         
-        The name that lnsd will try to assign to this machine. The default is 
+    -n NAME
+        The name that lnsd will try to assign to this machine. The default is
         the system's hostname.
 
-    -D              
-        This causes lnsd to go into daemon mode. By default, lnsd remains in 
+    -D
+        This causes lnsd to go into daemon mode. By default, lnsd remains in
         the foreground.
 
-    -h              
+    -h
         Print out this help message.
 """
 
@@ -62,7 +63,7 @@ MAX_PORT = 65535
 def check_port_or_die(argvalue):
     """
     Ensures that the argument value is a valid port number, or dies.
-    
+
      - The port must be a valid integer.
      - The port must be in the range [1, MAX_PORT]
     """
@@ -162,7 +163,7 @@ class ConfigHandler:
 
                 if control_port:
                     port = check_port_or_die(control_port)
-                    self.assign('net_port', self.PRI_CMDLNIE, port)
+                    self.assign('net_port', self.PRI_CMDLINE, port)
                 if net_port:
                     port = check_port_or_die(net_port)
                     self.assign('control_port', self.PRI_CMDLINE, port)
@@ -171,7 +172,7 @@ class ConfigHandler:
                 self.assign('hostname', self.PRI_CONFIG, hostname)
             elif optname == '-D':
                 self.assign('daemonize', self.PRI_CMDLINE, True)
-                        
+
     def process_config_file(self, filename):
         """
         Processes the configuration file, storing the options contained within
@@ -191,7 +192,7 @@ class ConfigHandler:
                 self.assign('hostname', self.PRI_CONFIG, hostname)
             elif 'daemonize' in config:
                 is_daemon = check_boolean_or_die(config['daemonize'])
-                self.assign(daemonize, self.PRI_CONFIG, is_daemon)
+                self.assign('daemonize', self.PRI_CONFIG, is_daemon)
 
 def main():
     if '-h' in sys.argv[1:]:
