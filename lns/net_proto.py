@@ -110,7 +110,7 @@ class ProtocolHandler:
         """
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.server_sock.bind(('255.255.255.255', self.port))
+        self.server_sock.bind(('0.0.0.0', self.port))
         self.reactor.bind(self.server_sock, reactor.READABLE, self.on_message)
         self.reactor.add_step_callback(self.on_announce_timeout)
 
