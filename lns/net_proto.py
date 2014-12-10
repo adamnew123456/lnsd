@@ -205,6 +205,12 @@ class ProtocolHandler:
                 message = Announce.unserialize(packet)
 
                 self.peer_last_announce_time[host] = time.time()
+                # The host might have been renamed, so we have to dispose of
+                # the old name before assigning the new one
+                if host in self.ip_to_host:
+                    old_hostname = self.ip_to_host[host]
+                    self.host_to_ips[old_hostname].remove(host)
+
                 self.ip_to_host[host] = message.hostname
                 self.host_to_ips[message.hostname].add(host)
 
