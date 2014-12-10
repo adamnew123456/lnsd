@@ -129,8 +129,8 @@ def main():
 
     try:
         opts, rest = getopt.getopt(sys.argv[1:], 'ai:n:p:q')
-    except getopt.GetoptError as err:
-        print(err, file=sys.stderr)
+    except getopt.GetoptError:
+        print(USAGE, file=sys.stderr)
         return 1
 
     if rest:
@@ -157,9 +157,13 @@ def main():
             file=sys.stderr)
         return 1
 
-    client = control_proto.ClientHandler(control_port)
-    with client:
-        func, args = mode
-        args.append(client)
-        func(*args)
-    return 0
+    try:
+        client = control_proto.ClientHandler(control_port)
+        with client:
+            func, args = mode
+            args.append(client)
+            func(*args)
+        return 0
+    except OSError:
+        print('Connection error', file=sys.stderr)
+        return 1

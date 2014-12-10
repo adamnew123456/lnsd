@@ -256,11 +256,16 @@ class ClientHandler:
         Reads a JSON message from the socket.
         """
         length_header = self.command_sock.recv(2)
+        if len(length_header) != 2:
+            raise OSError('Connection dropped')
         length = struct.unpack('H', length_header)[0]
 
         recv_message_raw = b''
         while len(recv_message_raw) < length:
-            recv_message_raw += self.command_sock.recv(utils.BUFFER_SIZE)
+            chunk = self.command_sock.recv(utils.BUFFER_SIZE)
+            if not chunk:
+                raise OSError('Connection dropped')
+            recv_message_raw += chunk
 
         json_data = get_length_encoded_json(
             io.BytesIO(length_header + recv_message_raw))

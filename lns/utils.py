@@ -6,6 +6,7 @@ These are various functions which don't have any direct dependency upon the
 state of the rest of the programs.
 """
 import io
+import sys
 
 # Most messages should be fairly small, and should fit inside of this limit
 BUFFER_SIZE = 1024

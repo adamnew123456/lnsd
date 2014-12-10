@@ -8,7 +8,7 @@ import getopt
 import socket
 import sys
 
-from . import daemon, control_proto, net_proto, reactor
+from . import daemon, control_proto, net_proto, reactor, utils
 
 class LNSDaemon(daemon.Daemon):
     def run(self, hostname, control_port, network_port):
@@ -20,11 +20,11 @@ class LNSDaemon(daemon.Daemon):
 
         net_handler.open()
         control_handler.open()
-        while control_hander.is_running():
-            reactor.poll(net_handler.get_time_until_next_ping())
+        while control_handler.is_running():
+            my_reactor.poll(net_handler.get_time_until_next_announce())
 
         net_handler.close()
-        control_hander.close()
+        control_handler.close()
 
 HELP = """lnsd - An implementation of the LAN Naming Service protocol.
 Usage:
@@ -113,7 +113,7 @@ class ConfigHandler:
 
     def __init__(self):
         self.net_port = (self.PRI_DEFAULT, net_proto.NET_PORT)
-        self.control_port = (self.PRI_DEFAULT, net_proto.CONTROL_PORT)
+        self.control_port = (self.PRI_DEFAULT, control_proto.CONTROL_PORT)
         self.name = (self.PRI_DEFAULT, socket.gethostname())
         self.daemonize = (self.PRI_DEFAULT, False)
 
@@ -163,13 +163,13 @@ class ConfigHandler:
 
                 if control_port:
                     port = check_port_or_die(control_port)
-                    self.assign('net_port', self.PRI_CMDLINE, port)
+                    self.assign('control_port', self.PRI_CMDLINE, port)
                 if net_port:
                     port = check_port_or_die(net_port)
-                    self.assign('control_port', self.PRI_CMDLINE, port)
+                    self.assign('net_port', self.PRI_CMDLINE, port)
             elif optname == '-n':
                 hostname = check_name_or_die(optvalue)
-                self.assign('hostname', self.PRI_CONFIG, hostname)
+                self.assign('name', self.PRI_CONFIG, hostname)
             elif optname == '-D':
                 self.assign('daemonize', self.PRI_CMDLINE, True)
 
@@ -181,17 +181,18 @@ class ConfigHandler:
         config = configparser.ConfigParser()
         config.read(filename)
         if 'lnsd' in config:
-            if 'net_port' in config:
-                port = check_port_or_die(config['net_port'])
+            lnsd_config = config['lnsd']
+            if 'net_port' in lnsd_config:
+                port = check_port_or_die(lnsd_config['net_port'])
                 self.assign('net_port', self.PRI_CONFIG, port)
-            elif 'control_port' in config:
-                port = check_port_or_die(config['control_port'])
+            elif 'control_port' in lnsd_config:
+                port = check_port_or_die(lnsd_config['control_port'])
                 self.assign('control_port', self.PRI_CONFIG, port)
-            elif 'hostname' in config:
-                hostname = check_name_or_die(config['hostname'])
-                self.assign('hostname', self.PRI_CONFIG, hostname)
-            elif 'daemonize' in config:
-                is_daemon = check_boolean_or_die(config['daemonize'])
+            elif 'hostname' in lnsd_config:
+                hostname = check_name_or_die(lnsd_config['hostname'])
+                self.assign('name', self.PRI_CONFIG, hostname)
+            elif 'daemonize' in lnsd_config:
+                is_daemon = check_boolean_or_die(lnsd_config['daemonize'])
                 self.assign('daemonize', self.PRI_CONFIG, is_daemon)
 
 def main():
@@ -202,8 +203,8 @@ def main():
     opt_handler = ConfigHandler()
     try:
         opt_handler.process_commandline_args(sys.argv[1:])
-    except getopt.GetOptError as err:
-        print(err, file=sys.stderr)
+    except getopt.GetoptError:
+        print(USAGE, file=sys.stderr) 
         return 1
 
     runner = LNSDaemon()

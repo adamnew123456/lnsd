@@ -98,10 +98,10 @@ class ProtocolHandler:
         self.server_sock = None
         self.hostname = hostname
 
-        self.last_ping_time = None
-        self.peer_last_ping_time = {}
+        self.last_announce_time = 0
+        self.peer_last_announce_time = {}
         self.host_to_ips = defaultdict(set)
-        self.ips_to_hosts = {}
+        self.ip_to_host = {}
         self.peer_buffers = defaultdict(bytes)
 
     def open(self):
@@ -134,43 +134,51 @@ class ProtocolHandler:
         """
         Gets a host for the given IP address, or None.
         """
-        return self.ips_to_hosts.get(ip, None)
+        return self.ip_to_host.get(ip, None)
 
     def get_host_ip_map(self):
         """
         Gets the host to IP address map.
         """
-        return {host: ips for host, ips in self.host_to_ips if ips}
+        return {host: list(ips) for host, ips in self.host_to_ips.items() 
+            if ips}
 
     def on_announce_timeout(self):
         """
         This sends out a new announce message, and drops any clients whose last
         announce was too far back in time.
         """
+        if time.time() - self.last_announce_time < ANNOUNCE_ALARM:
+            # Avoid announcing quickly - since we send out a new Announce()
+            # every time the timer runs out, we could receive our own message
+            # and send out a new one, causing on_announce_timeout to be called
+            # repeatedly as it receives its own messags
+            return
+
         utils.sendto_all(self.server_sock, Announce(self.hostname).serialize(),
             ('255.255.255.255', self.port))
-        self.last_ping_time = time.time()
+        self.last_announce_time = time.time()
 
         now = time.time()
         to_drop = [peer
-            for peer, last_ping_time in self.peer_last_ping_time.items()
-            if now - last_ping_time > ANNOUNCE_TTL
+            for peer, last_announce_time in self.peer_last_announce_time.items()
+            if now - last_announce_time > ANNOUNCE_TTL
         ]
 
         for peer in to_drop:
-            del self.peer_last_ping_time[peer]
+            del self.peer_last_announce_time[peer]
             del self.peer_buffers[peer]
 
-            peer_name = self.ips_to_hosts[peer]
-            del self.ips_to_hosts[peer]
+            peer_name = self.ip_to_host[peer]
+            del self.ip_to_host[peer]
             self.host_to_ips[peer].remove(peer_name)
 
-    def get_time_until_next_ping(self):
+    def get_time_until_next_announce(self):
         """
-        Gets the amount of time since the last ping.
+        Gets the amount of time since the last announce.
         """
-        time_since_last_ping = time.time() - self.last_ping_time
-        return max(ANNOUNCE_ALARM - time_since_last_ping, 0)
+        time_since_last_announce = time.time() - self.last_announce_time
+        return max(ANNOUNCE_ALARM - time_since_last_announce, 0)
 
     def handle_messages(self, host):
         """
@@ -193,9 +201,16 @@ class ProtocolHandler:
                     # A corrupt Announce packet (or some other kind of data we
                     # cannot use) is best ignored, since we can't do anything
                     continue
-                self.peer_last_ping_time[host] = time.time()
 
-    def on_message(self):
+                message = Announce.unserialize(packet)
+
+                self.peer_last_announce_time[host] = time.time()
+                self.ip_to_host[host] = message.hostname
+                self.host_to_ips[message.hostname].add(host)
+
+        self.peer_buffers[host] = buffer_stream.read()
+
+    def on_message(self, _):
         """
         Retrieves data from the server socket, and saves it into the peer's
         buffer, possibly handling any complete messages in that peer's
