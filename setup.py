@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
         name='lnsd',
-        packages=['lns', 'lns.socks'],
+        packages=['lns'],
         entry_points = {
             'console_scripts':
                 ['lnsd = lns.lnsd:main', 'lns-query = lns.query:main']
