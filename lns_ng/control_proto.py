@@ -289,14 +289,20 @@ class ClientHandler:
         """
         self.command_sock.close()
 
+    def send_and_await_reply(self, msg, reply_type):
+        """
+        Sends a message, and awaits a reply of a specific type.
+        """
+        self.command_sock.sendall(msg.serialize())
+        return self.read_json_message(reply_type)
+
     def get_ip(self, host):
         """
         Gets the IP address corresponding to a hostname. Note that the return
         value may be ``None`` if no address corresponds to the given host.
         """
         message = Host(host)
-        self.command_sock.send(message.serialize())
-        reply = self.read_json_message(IP)
+        reply = self.send_and_await_reply(message, IP)
         return reply.ip_addrs
 
     def get_host(self, ip):
@@ -305,8 +311,7 @@ class ClientHandler:
         value may be ``None`` if no host corresponds to the given address.
         """
         message = IP([ip])
-        self.command_sock.send(message.serialize())
-        reply = self.read_json_message(Host)
+        reply = self.send_and_await_reply(message, Host)
         return reply.hostname
 
     def get_host_ip_mapping(self):
@@ -314,9 +319,15 @@ class ClientHandler:
         Gets the entire host -> IP mapping, as a dictionary.
         """
         message = GetAll()
-        self.command_sock.send(message.serialize())
-        reply = self.read_json_message(NameIPMapping)
+        reply = self.send_and_await_reply(message, NameIPMapping)
         return reply.host_to_ips
+
+    def terminate(self):
+        """
+        Terminates the server.
+        """
+        message = Quit()
+        self.command_sock.send(message.serialize())
 
 class ProtocolHandler:
     """

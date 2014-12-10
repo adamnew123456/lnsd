@@ -200,7 +200,11 @@ def main():
         return 0
 
     opt_handler = ConfigHandler()
-    opt_handler.process_commandline_args(sys.argv[1:])
+    try:
+        opt_handler.process_commandline_args(sys.argv[1:])
+    except getopt.GetOptError as err:
+        print(err, file=sys.stderr)
+        return 1
 
     runner = LNSDaemon()
     if opt_handler.get_daemonize():
