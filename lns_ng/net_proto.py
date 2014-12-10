@@ -92,10 +92,11 @@ class ProtocolHandler:
     Handles remote LNS servers, sending out Announce messages and caching them,
     while periodically sending out its own Announce message.
     """
-    def __init__(self, reactor, port=NET_PORT):
+    def __init__(self, reactor, hostname, port=NET_PORT):
         self.reactor = reactor
         self.port = port
         self.server_sock = None
+        self.hostname = hostname
 
         self.last_ping_time = None
         self.peer_last_ping_time = {}
@@ -115,6 +116,12 @@ class ProtocolHandler:
         
         # Go ahead and do our first announce, so that we appear on the network ASAP
         self.on_announce_timeout()
+
+    def close(self):
+        """
+        Cloes the server socket.
+        """
+        self.server_sock.close()
 
     def query_host(self, host):
         """
@@ -139,7 +146,7 @@ class ProtocolHandler:
         This sends out a new announce message, and drops any clients whose last
         announce was too far back in time.
         """
-        utils.sendto_all(self.server_sock, Announce().serialize(), 
+        utils.sendto_all(self.server_sock, Announce(self.hostname).serialize(), 
             ('255.255.255.255', self.port))
         self.last_ping_time = time.time()
 
