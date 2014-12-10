@@ -21,6 +21,15 @@ Changes:        23rd Jan 2009 (David Mytton <david@boxedice.com>)
                 - Fixed unhandled exception if PID file is empty
                 3rd May 2014 (Adam Marchetti <adamnew123456@gmail.com>)
                 - Ported to Python 3
+                29th August 2014 (Adam Marchetti <adamnew123456@gmail.com>)
+                - Removed PID file handling, which is not used by jobmon
+                - Changed sys.exit to os._exit, to avoid unittest catching
+                  the SystemExit and doing odd things.
+                - Allowed the parent process to stick around, which also aids
+                  unit testing
+                27th November 2013
+                - Added the option to kill the parent, rather than forcing it
+                  to stick around for no reason.
 '''
 
 # Core modules
@@ -30,20 +39,19 @@ import sys
 import time
 import signal
 
-
 class Daemon(object):
     """
     A generic daemon class.
 
     Usage: subclass the Daemon class and override the run() method
     """
-    def __init__(self, pidfile, stdin=os.devnull,
-                 stdout=os.devnull, stderr=os.devnull,
-                 home_dir='.', umask=0o22, verbose=1):
+    def __init__(self, stdin=os.devnull, stdout=os.devnull, 
+                 stderr=os.devnull, home_dir='.', umask=0o22,
+                 kill_parent=True, verbose=1):
+        self.kill_parent = kill_parent
         self.stdin = stdin
         self.stdout = stdout
         self.stderr = stderr
-        self.pidfile = pidfile
         self.home_dir = home_dir
         self.verbose = verbose
         self.umask = umask
@@ -58,12 +66,16 @@ class Daemon(object):
         try:
             pid = os.fork()
             if pid > 0:
-                # Exit first parent
-                sys.exit(0)
+                if self.kill_parent:
+                    os._exit(0)
+                else:
+                    # Let the first parent continue, since that could be running
+                    # from the CLI, or running a test, or something
+                    return False
         except OSError as e:
             sys.stderr.write(
                 "fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
-            sys.exit(1)
+            os._exit(1)
 
         # Decouple from parent environment
         os.chdir(self.home_dir)
@@ -75,11 +87,11 @@ class Daemon(object):
             pid = os.fork()
             if pid > 0:
                 # Exit from second parent
-                sys.exit(0)
+                os._exit(0)
         except OSError as e:
             sys.stderr.write(
                 "fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
-            sys.exit(1)
+            os._exit(1)
 
         if sys.platform != 'darwin':  # This block breaks on OS X
             # Redirect standard file descriptors
@@ -100,70 +112,20 @@ class Daemon(object):
             signal.signal(signal.SIGTERM, sigtermhandler)
             signal.signal(signal.SIGINT, sigtermhandler)
 
-        if self.verbose >= 1:
-            print("Started")
-
-        # Write pidfile
-        atexit.register(
-            self.delpid)  # Make sure pid file is removed if we quit
-        pid = str(os.getpid())
-        open(self.pidfile, 'w+').write("%s\n" % pid)
-
-    def delpid(self):
-        try:
-            os.remove(self.pidfile)
-        except FileNotFoundError:
-            pass
+        return True
 
     def start(self, *args, **kwargs):
         """
         Start the daemon
         """
-
-        if self.verbose >= 1:
-            print("Starting...")
-
-        # Check for a pidfile to see if the daemon already runs
-        try:
-            pf = open(self.pidfile, 'r')
-            pid = int(pf.read().strip())
-            pf.close()
-        except IOError:
-            pid = None
-        except SystemExit:
-            pid = None
-
-        if pid:
-            message = "pidfile %s already exists. Is it already running?\n"
-            sys.stderr.write(message % self.pidfile)
-            sys.exit(1)
-
         # Start the daemon
-        self.daemonize()
-        self.run(*args, **kwargs)
+        if self.daemonize():
+            self.run(*args, **kwargs)
 
     def stop(self):
         """
         Stop the daemon
         """
-
-        if self.verbose >= 1:
-            print("Stopping...")
-
-        # Get the pid from the pidfile
-        pid = self.get_pid()
-
-        if not pid:
-            message = "pidfile %s does not exist. Not running?\n"
-            sys.stderr.write(message % self.pidfile)
-
-            # Just to be sure. A ValueError might occur if the PID file is
-            # empty but does actually exist
-            if os.path.exists(self.pidfile):
-                os.remove(self.pidfile)
-
-            return  # Not an error in a restart
-
         # Try killing the daemon process
         try:
             i = 0
@@ -180,10 +142,7 @@ class Daemon(object):
                     os.remove(self.pidfile)
             else:
                 print(str(err))
-                sys.exit(1)
-
-        if self.verbose >= 1:
-            print("Stopped")
+                os._exit(1)
 
     def restart(self):
         """
@@ -191,22 +150,6 @@ class Daemon(object):
         """
         self.stop()
         self.start()
-
-    def get_pid(self):
-        try:
-            pf = open(self.pidfile, 'r')
-            pid = int(pf.read().strip())
-            pf.close()
-        except IOError:
-            pid = None
-        except SystemExit:
-            pid = None
-        return pid
-
-    def is_running(self):
-        pid = self.get_pid()
-        print(pid)
-        return pid and os.path.exists('/proc/%d' % pid)
 
     def run(self):
         """

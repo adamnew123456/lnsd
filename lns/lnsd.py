@@ -1,125 +1,69 @@
 #!/usr/bin/env python3
 """
-This is an implementation of the LAN naming service, as defined in the given 
-README.
-
-This particular daemon is capable of:
-
- - Implementing the definition of LNS.
- - Reading configuration values from an INI-style file or from the command line.
- - Allowing clients to query the host-name mapping via a service.
+The daemon runner for lnsd, which handles both configuration options as well
+as command line options.
 """
-
 import configparser
 import getopt
 import socket
 import sys
-import threading
 
-from lns.bidict import *
-from lns import daemon, proto, service
-from lns.socks import session
+from . import daemon, control_proto, net_proto, reactor
 
-PID_FILE = '/tmp/lnsd.pid'
-LOG = '/tmp/lnsd.log'
-class LNS_Daemon(daemon.Daemon):
-    def dbus_service(self, lnsd):
-        """
-        Launches the query service.
-        """
-        service.run_service(lnsd)
+class LNSDaemon(daemon.Daemon):
+    def run(self, hostname, control_port, network_port):
+        my_reactor = reactor.Reactor()
+        net_handler = net_proto.ProtocolHandler(my_reactor, hostname,
+            port=network_port)
+        control_handler = control_proto.ProtocolHandler(net_handler,
+            my_reactor, port=control_port)
 
-    def proxy_thread(self, lnsd):
-        """
-        Launches the SOCKS proxy.
-        """
-        proxy = session.SessionManager(lnsd, 1080)
-        proxy.run()
+        net_handler.open()
+        control_handler.open()
+        while control_hander.is_running():
+            reactor.poll(net_handler.get_time_until_next_ping())
 
-    def run(self, lnsd):
-        """
-        Launches the service thread, the proxy thread, and well as the LNS protocol handler.
-        """
-        dbus_thread = threading.Thread(target=self.dbus_service, args=(lnsd,), daemon=True)
-        dbus_thread.start()
-
-        proxy_thread = threading.Thread(target=self.proxy_thread, args=(lnsd,), daemon=True)
-        proxy_thread.start()
-
-        proto.protocol_handler(lnsd)
-
-class LNS:
-    """
-    A container, meant to make it easy for the LNS protocol handler and the other
-    services to share data.
-    """
-    def __init__(self, port, timeout, heartbeat, name, daemonize):
-        self.port = port
-        self.timeout = timeout
-        self.heartbeat = heartbeat
-        self.name = name
-        self.should_daemonize = daemonize
-
-        # Note that this lock is only used by the protocol handler when it modifies
-        # this dict - this is because the other services are guaranteed to never touch
-        # this dict, only read from it.
-        self.host_names_lock = threading.Lock()
-        self.host_names = bidict()
-
-        self.quit_event = threading.Event()
-
-    def main(self):
-        """
-        Starts both the support services as well as the protocol, daemonizing before
-        hand if necessary.
-        """
-        daemon = LNS_Daemon(PID_FILE, stdout=LOG, stderr=None, home_dir='/')
-        if self.should_daemonize:
-            daemon.start(self)
-        else:
-            # (This bypasses the daemon setup)
-            daemon.run(self)
-
-##### BELOW HERE LIES THE ARGUMENT PARSING AND CONFIGURATION ROUTINES #####
+        net_handler.close()
+        control_hander.close()
 
 HELP = """lnsd - An implementation of the LAN Naming Service protocol.
 Usage:
 
-    lnsd [-h] [-c config] [-p port] [-h heartbeat] [-t timeout] [-n name] [-D]
+    lnsd [-c config] [-p [control-port]:[network-port]] [-n name]
 
 Options:
 
-    -h              Prints out this help page.
+    -c CONFIG
+        Config is the name of an INI-style configuration file to load
+        configuration values from. Note that any options provided on the
+        command line override the contents of the configuration file. By
+        default, no configuration file is processed.
 
-    -c CONFIG       Config is the name of an INI-style configuration 
-                    file to load configuration values from. Note that
-                    any options provided on the command line override the
-                    contents of the configuration file. By default, the 
-                    configuration file is located at '/etc/lnsd.conf'
+    -p [CONTROL_PORT]:[NETWORK_PORT]
+        The external port (default: 15051) and internal port (default: 10771)
+        to bind to. The external port is opened up to receive Announce
+        messages from remote machines, while the internal port is used for
+        control messages to the server.
 
-    -p PORT         The port to bind to, 15051 by default.
+    -n NAME
+        The name that lnsd will try to assign to this machine. The default is
+        the system's hostname.
 
-    -t TIMEOUT      How many seconds to wait for an ANNOUNCE message before
-                    declaring a host dead. By default, the timeout is 30 seconds.
+    -D
+        This causes lnsd to go into daemon mode. By default, lnsd remains in
+        the foreground.
 
-    -a HEARTBEAT    How often, in seconds, to send an ANNOUNCE message to peers.
-                    By default, the interval is 10 seconds.
+    -h
+        Print out this help message.
+"""
 
-    -n NAME         The name that lnsd will try to assign to this machine. The 
-                    default is the system's hostname.
+USAGE = 'lnsd [-c config] [-p [control-port]:[network-port]] [-n name]'
 
-    -D              This causes lnsd to go into daemon mode. By default, lnsd
-                    remains in the foreground.
-""".strip()
-
-USAGE = 'lnsd [-h] [-D] [-c config] [-p port] [-h heartbeat] [-t timeout] [-n name]'
-
-MAX_PORT = 2 << 15 - 1
-
+MAX_PORT = 65535
 def check_port_or_die(argvalue):
     """
     Ensures that the argument value is a valid port number, or dies.
-    
+
      - The port must be a valid integer.
      - The port must be in the range [1, MAX_PORT]
     """
@@ -133,38 +77,6 @@ def check_port_or_die(argvalue):
         print('Invalid port number:', argvalue, file=sys.stderr)
         sys.exit(1)
 
-def check_timeout_or_die(argvalue):
-    """
-    Ensures that the argument value is a valid timeout value, or dies.
-
-     - The timeout must be a valid integer.
-     - The timeout must be > 0.
-    """
-    try:
-        timeout = int(argvalue)
-        if timeout < 0:
-            raise ValueError
-        return timeout
-    except ValueError:
-        print('Invalid timeout value:', argvalue, file=sys.stderr)
-        sys.exit(1)
-
-def check_heartbeat_or_die(argvalue):
-    """
-    Ensures that an argument is a valid heartbeat interval, or dies.
-
-     - The interval must be a valid integer.
-     - The interval must be > 0.
-    """
-    try:
-        interval = int(argvalue)
-        if interval < 0:
-            raise ValueError
-        return interval
-    except ValueError:
-        print('Invalid heartbeat interval:', argvalue, file=sys.stderr)
-        sys.exit(1)
-
 def check_name_or_die(argvalue):
     """
     Ensures that the argument value is a valid host name, or dies.
@@ -174,119 +86,133 @@ def check_name_or_die(argvalue):
      - The length of the host name must be in the range [1, MSG_SIZE].
     """
     try:
-        name = bytes(argvalue, 'ascii')
-
-        # The reason that MSG_SIZE - 1is used here is because the spec states that the
-        # maximum data size is MSG_SIZE, and the type field of the message uses up
-        # one byte.
-        if not name  or len(name) > proto.MSG_SIZE - 1:
-            raise ValueError
-
-        for ascii_code in name:
-            if ascii_code <= 32 or ascii_code == 127:
-                raise ValueError
-
-        return name
-    except ValueError:
-        print("Host name cannot be empty or contain nonprintable characters", 
-            sys.stderr)
-        sys.exit(1)
-    except UnicodeEncodeError:
-        print("Host name must be valid ASCII", file=sys.stderr)
+        net_proto.verify_hostname(argvalue.encode('ascii'))
+        return argvalue
+    except ValueError as err:
+        print('Invalid hostname: ' + str(err), file=sys.stderr)
         sys.exit(1)
 
-# This is how values are organized in the 'configuration lists' below
-DEFAULT, CONFIGFILE, CMDLINE = range(3)
-def collapse_value(param):
+def check_boolean_or_die(argvalue):
     """
-    Collapses a parameter into a single value - the last non-None value.
-    For example:
+    Ensures that the argument value is a valid boolean, which means that
+    its lowercase form must be either 'true' or 'false'
+    """
+    bool_map = {'true': True, 'false': False}
+    try:
+        return bool_map[argvalue.lower()]
+    except KeyError:
+        print('Invalid boolean:', argvalue)
+        sys.exit(1)
 
-    >>> x = [None, None, None]
-    >>> x[DEFAULT] = 'foo'
-    >>> x[CONFIGFILE] = 'bar'
-    >>> collapse_value(x)
-    bar
+class ConfigHandler:
     """
-    valid_values = [value for value in param if value is not None]
-    return valid_values[-1]
+    Processes command line arguments, as well as the configuration file, and
+    gets the highest priority values for lnsd's options.
+    """
+    PRI_DEFAULT, PRI_CONFIG, PRI_CMDLINE = range(3)
+
+    def __init__(self):
+        self.net_port = (self.PRI_DEFAULT, net_proto.NET_PORT)
+        self.control_port = (self.PRI_DEFAULT, net_proto.CONTROL_PORT)
+        self.name = (self.PRI_DEFAULT, socket.gethostname())
+        self.daemonize = (self.PRI_DEFAULT, False)
+
+    def get_network_port(self):
+        return self.net_port[1]
+
+    def get_control_port(self):
+        return self.control_port[1]
+
+    def get_name(self):
+        return self.name[1]
+
+    def get_daemonize(self):
+        return self.daemonize[1]
+
+    def assign(self, option, priority, value):
+        """
+        Assigns the given value to the given option, only if the priority for
+        the new value is higher than that of the old value.
+        """
+        old_pri, _ = getattr(self, option)
+        if old_pri > priority:
+            return
+
+        setattr(self, option, (priority, value))
+
+    def process_commandline_args(self, argv):
+        """
+        Processes command line arguments, and stores the options specified by
+        those arguments.
+        """
+        opts, rest = getopt.getopt(argv, 'c:p:n:D')
+        if rest:
+            # We have to hijack getopt's exception value since that's what the
+            # caller should already be watching
+            raise getopt.GetoptError('No positional arguments allowed')
+
+        for optname, optvalue in opts:
+            if optname == '-c':
+                self.process_config_file(optvalue)
+            elif optname == '-p':
+                try:
+                    control_port, net_port = optvalue.split(':')
+                except ValueError:
+                    print('-p option must contain two ports '
+                        '(or an empty string) joined by a :', file=sys.stderr)
+
+                if control_port:
+                    port = check_port_or_die(control_port)
+                    self.assign('net_port', self.PRI_CMDLINE, port)
+                if net_port:
+                    port = check_port_or_die(net_port)
+                    self.assign('control_port', self.PRI_CMDLINE, port)
+            elif optname == '-n':
+                hostname = check_name_or_die(optvalue)
+                self.assign('hostname', self.PRI_CONFIG, hostname)
+            elif optname == '-D':
+                self.assign('daemonize', self.PRI_CMDLINE, True)
+
+    def process_config_file(self, filename):
+        """
+        Processes the configuration file, storing the options contained within
+        it.
+        """
+        config = configparser.ConfigParser()
+        config.read(filename)
+        if 'lnsd' in config:
+            if 'net_port' in config:
+                port = check_port_or_die(config['net_port'])
+                self.assign('net_port', self.PRI_CONFIG, port)
+            elif 'control_port' in config:
+                port = check_port_or_die(config['control_port'])
+                self.assign('control_port', self.PRI_CONFIG, port)
+            elif 'hostname' in config:
+                hostname = check_name_or_die(config['hostname'])
+                self.assign('hostname', self.PRI_CONFIG, hostname)
+            elif 'daemonize' in config:
+                is_daemon = check_boolean_or_die(config['daemonize'])
+                self.assign('daemonize', self.PRI_CONFIG, is_daemon)
 
 def main():
     if '-h' in sys.argv[1:]:
         print(HELP)
-        sys.exit(0)
+        return 0
 
+    opt_handler = ConfigHandler()
     try:
-        opts, args = getopt.getopt(sys.argv[1:], 'c:p:t:a:n:D')
-    except getopt.GetoptError:
-        print(USAGE, file=sys.stderr)
-        sys.exit(1)
+        opt_handler.process_commandline_args(sys.argv[1:])
+    except getopt.GetOptError as err:
+        print(err, file=sys.stderr)
+        return 1
 
-    config_file = '/etc/lnsd.conf'
-    port = [15051, None, None]
-    timeout = [30, None, None]
-    heartbeat = [10, None, None]
-    name = [bytes(socket.gethostname(), 'ascii'), None, None]
-    daemonize = [False, None, None]
-
-    # No non-named arguments are taken.
-    if args:
-        print(USAGE, file=sys.stderr)
-        sys.exit(1)
-
-    for optname, optvalue in opts:
-        if optname == '-c':
-            config_file = optvalue
-        elif optname == '-p':
-            port[CMDLINE] = check_port_or_die(optvalue)
-        elif optname == '-t':
-            timeout[CMDLINE] = check_timeout_or_die(optvalue)
-        elif optname == '-a':
-            heartbeat[CMDLINE] = check_heartbeat_or_die(optvalue)
-        elif optname == '-n':
-            name[CMDLINE] = check_name_or_die(optvalue)
-        elif optname == '-D':
-            daemonize[CMDLINE] = True
-        else:
-            print(USAGE, file=sys.stderr)
-            sys.exit(1)
-
-    config = configparser.ConfigParser()
-    config.read(config_file)
-    if 'lnsd' in config:
-        for key, value in config['lnsd'].items():
-            if key == 'port':
-                port[CONFIGFILE] = check_port_or_die(value)
-            elif key == 'timeout':
-                timeout[CONFIGFILE] = check_timeout_or_die(value)
-            elif key == 'heartbeat':
-                heartbeat[CONFIGFILE] = check_heartbeat_or_die(value)
-            elif key == 'hostname':
-                name[CONFIGFILE] = check_name_or_die(value)
-            elif key == 'daemonize':
-                value = value.lower()
-                if value == 'true':
-                    daemonize[CONFIGFILE] = True
-                elif value == 'false':
-                    daemonize[CONFIGFILE] = False
-                else:
-                    print('daemon option in the config file'
-                            ' must be either "true" or "false"', 
-                            file=sys.stderr)
-                    sys.exit(1)
-            else:
-                print('Excess configuration option: "{}" = "{}"'.format(
-                            key, value), file=sys.stderr)
-                sys.exit(1)
-
-    # Figure out the highest priority values for each of the parameters.
-    port = collapse_value(port)
-    timeout = collapse_value(timeout)
-    heartbeat = collapse_value(heartbeat)
-    name = collapse_value(name)
-    daemonize = collapse_value(daemonize)
-
-    LNS(port, timeout, heartbeat, name, daemonize).main()
+    runner = LNSDaemon()
+    if opt_handler.get_daemonize():
+        runner.start(opt_handler.get_name(), opt_handler.get_control_port(),
+            opt_handler.get_network_port())
+    else:
+        runner.run(opt_handler.get_name(), opt_handler.get_control_port(),
+            opt_handler.get_network_port())
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
