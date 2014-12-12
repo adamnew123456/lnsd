@@ -8,7 +8,7 @@ setup(
                 ['lnsd = lns.lnsd:main', 'lns-query = lns.query:main']
         },
         author='Adam Marchetti',
-        version='0.4',
+        version='0.4.1',
         description='LAN Naming System',
         author_email='adamnew123456@gmail.com',
         url='http://github.com/adamnew123456/lnsd',
@@ -25,6 +25,5 @@ setup(
         long_description = """\
 # LAN Naming System - lnsd
 
-Provides a distributed naming system for use within LANs, along with a SOCKS
-server to make accessing hosts easier.
+Provides a distributed naming system for use within LANs.
 """)

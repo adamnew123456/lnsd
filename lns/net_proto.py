@@ -152,12 +152,20 @@ class ProtocolHandler:
             # Avoid announcing quickly - since we send out a new Announce()
             # every time the timer runs out, we could receive our own message
             # and send out a new one, causing on_announce_timeout to be called
-            # repeatedly as it receives its own messags
+            # repeatedly as it receives its own messages
             return
 
-        utils.sendto_all(self.server_sock, Announce(self.hostname).serialize(),
-            ('255.255.255.255', self.port))
+        # We want this to happen even if we disconnect, since we don't want to
+        # throttle the CPU
         self.last_announce_time = time.time()
+        try:
+            utils.sendto_all(self.server_sock, Announce(self.hostname).serialize(),
+                ('255.255.255.255', self.port))
+        except OSError:
+            # At this point, we've disconnected, so we need to sit on the socket
+            # until we reconnect; this should be okay, since the socket should
+            # still be open (at least it is on Linux).
+            pass
 
         now = time.time()
         to_drop = [peer
