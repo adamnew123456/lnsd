@@ -8,7 +8,7 @@ import threading
 import traceback
 import unittest
 
-from lns_ng import control_proto, reactor
+from lns import control_proto, reactor
 
 # Change this to some port that is available on your machine, so that the
 # control protocol handler and the control protocol client can communicate

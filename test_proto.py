@@ -5,7 +5,7 @@ that a message which is encoded and decoded is equal to the original message.
 import io
 import unittest
 
-from lns_ng import control_proto, net_proto
+from lns import control_proto, net_proto
 
 class NetworkProtocol(unittest.TestCase):
     def roundtrip(self, message):
