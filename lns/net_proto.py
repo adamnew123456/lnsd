@@ -161,10 +161,13 @@ class ProtocolHandler:
         try:
             utils.sendto_all(self.server_sock, Announce(self.hostname).serialize(),
                 ('255.255.255.255', self.port))
-        except OSError:
+        except (OSError, socket.error):
             # At this point, we've disconnected, so we need to sit on the socket
             # until we reconnect; this should be okay, since the socket should
             # still be open (at least it is on Linux).
+            #
+            # Update 13 December 2014: Cygwin raises a different exception,
+            # in the socket module rather than an OSError.
             pass
 
         now = time.time()
