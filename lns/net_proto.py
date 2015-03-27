@@ -20,6 +20,9 @@ LOGGER = logging.getLogger('lns.net_proto')
 
 NET_PORT = 15051
 
+# The broadcast address which covers typical LANs
+BROADCAST_ADDR = '192.168.255.255'
+
 # All packets received from the network are 512 bytes, not including the UDP
 # header
 PACKET_SIZE = 512
@@ -95,8 +98,9 @@ class ProtocolHandler:
     Handles remote LNS servers, sending out Announce messages and caching them,
     while periodically sending out its own Announce message.
     """
-    def __init__(self, a_reactor, hostname, port=NET_PORT):
+    def __init__(self, a_reactor, hostname, address=BROADCAST_ADDR, port=NET_PORT):
         self.reactor = a_reactor
+        self.broadcast_addr = address
         self.port = port
         self.server_sock = None
         self.hostname = hostname
@@ -165,7 +169,7 @@ class ProtocolHandler:
         self.last_announce_time = time.time()
         try:
             utils.sendto_all(self.server_sock, Announce(self.hostname).serialize(),
-                ('255.255.255.255', self.port))
+                (self.broadcast_addr, self.port))
             LOGGER.debug('Sent an Announce')
         except (OSError, socket.error):
             # At this point, we've disconnected, so we need to sit on the socket

@@ -26,37 +26,8 @@ programs somewhere in your `$PATH`.
 
 # Using lnsd
 
-`lnsd` is the daemon which manages the LNS protocol on the network. It accepts
-the following command line options:
-
-    lnsd - An implementation of the LAN Naming Service protocol.
-    Usage:
-
-        lnsd [-c config] [-p [control-port]:[network-port]] [-n name] [-v]
-
-    Options:
-
-        -c CONFIG       Config is the name of an INI-style configuration 
-                        file to load configuration values from. Note that
-                        any options provided on the command line override the
-                        contents of the configuration file. By default, no
-                        configuration file is processed.
-
-        -p PORT         The external port (default: 15051) and internal port 
-                        (default: 10771) to bind to. The external port is opened
-                        up to receive Announce messages from remote machines,
-                        while the internal port is used for control messages to
-                        the server.
-
-        -n NAME         The name that lnsd will try to assign to this machine. The 
-                        default is the system's hostname.
-
-        -D              This causes lnsd to go into daemon mode. By default, lnsd
-                        remains in the foreground.
-
-        -v              Print out logging messages.
-
-        -h              Print out this help message.
+`lnsd` is the daemon which manages the LNS protocol on the network. You can get
+a list of arguments that it accepts by running `lnsd -h`.
 
 The default configuration file that it reads is `/etc/lnsd.conf`, but can also read
 another configuration file provided by the `-c` flag. The configuration file has
@@ -68,28 +39,15 @@ the following form:
     hostname=foo.example
     daemonize=false
     verbose=false
+    broadcast_address=192.168.255.255
 
 (Note that it accepts any format which Python's configparser module can - for example,
 comments).
 
 # Using lns-query
 
-`lns-query` is the query program which connects to the LNS protocol. It accepts
-the following command line options:
-
-    lns-query - Accesses the host-name mapping provided by lnsd.
-    Usage:
-
-        lns-query <-a | -i host | -n name | -q> [-p control_port]
-
-    Options:
-
-        -a          Gets a list of all host-name pairs.
-        -i HOST     Gets the name associated with the given IP address.
-        -n NAME     Gets the IP address associated with the given name.
-        -p PORT     The port number of the internal control port to connect to
-                    (default: 10771).
-        -q          Terminates the server.
+`lns-query` is the query program which connects to the LNS protocol. You can get
+a list of what command line arguments it accepts by running `lns-query -h`.
 
 Consider the following network:
 

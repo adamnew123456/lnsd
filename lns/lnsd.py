@@ -12,9 +12,10 @@ import sys
 from lns import daemon, control_proto, net_proto, reactor, utils
 
 class LNSDaemon(daemon.Daemon):
-    def run(self, hostname, control_port, network_port):
+    def run(self, hostname, control_port, network_port, broadcast_addr):
         my_reactor = reactor.Reactor()
         net_handler = net_proto.ProtocolHandler(my_reactor, hostname,
+            addr=broadcast_addr,
             port=network_port)
         control_handler = control_proto.ProtocolHandler(net_handler,
             my_reactor, port=control_port)
@@ -30,7 +31,7 @@ class LNSDaemon(daemon.Daemon):
 HELP = """lnsd - An implementation of the LAN Naming Service protocol.
 Usage:
 
-    lnsd [-c config] [-p [control-port]:[network-port]] [-n name] [-v]
+    lnsd [-c config] [-b broadcast-address] [-p [control-port]:[network-port]] [-n name] [-v]
 
 Options:
 
@@ -45,6 +46,10 @@ Options:
         to bind to. The external port is opened up to receive Announce
         messages from remote machines, while the internal port is used for
         control messages to the server.
+
+    -b [BROADCAST_ADDRESS]
+        The IP address to use for sending broadcast packets. By default, this is
+        the 16-bit block, 192.168.255.255.
 
     -n NAME
         The name that lnsd will try to assign to this machine. The default is
@@ -61,7 +66,7 @@ Options:
         Print out this help message.
 """
 
-USAGE = 'lnsd [-c config] [-p [control-port]:[network-port]] [-n name] [-v]'
+USAGE = 'lnsd [-c config] [-b broadcast-address] [-p [control-port]:[network-port]] [-n name] [-v]'
 
 MAX_PORT = 65535
 def check_port_or_die(argvalue):
@@ -121,6 +126,7 @@ class ConfigHandler:
         self.name = (self.PRI_DEFAULT, socket.gethostname())
         self.daemonize = (self.PRI_DEFAULT, False)
         self.verbose = (self.PRI_DEFAULT, False)
+        self.broadcast = (self.PRI_DEFAULT, '192.168.255.255')
 
     def get_network_port(self):
         return self.net_port[1]
@@ -136,6 +142,9 @@ class ConfigHandler:
 
     def get_verbose(self):
         return self.verbose[1]
+
+    def get_broadcast(self):
+        return self.broadcast[1]
 
     def assign(self, option, priority, value):
         """
@@ -182,6 +191,8 @@ class ConfigHandler:
                 self.assign('daemonize', self.PRI_CMDLINE, True)
             elif optname == '-v':
                 self.assign('verbose', self.PRI_CMDLINE, True)
+            elif optname == '-b':
+                self.assign('broadcast', self.PRI_CMDLINE, optvalue)
 
     def process_config_file(self, filename):
         """
@@ -207,6 +218,8 @@ class ConfigHandler:
             elif 'verbose' in lnsd_config:
                 is_verbose = check_boolean_or_die(lnsd_config['verbose'])
                 self.assign('verbose', self.PRI_CONFIG, is_verbose)
+            elif 'broadcast_address' in lnsd_config:
+                self.assign('broadcast', self.PRI_CONFIG, lnsd_config['broadcast_address'])
 
 def main():
     if '-h' in sys.argv[1:]:
@@ -226,10 +239,10 @@ def main():
     runner = LNSDaemon()
     if opt_handler.get_daemonize():
         runner.start(opt_handler.get_name(), opt_handler.get_control_port(),
-            opt_handler.get_network_port())
+            opt_handler.get_network_port(), opt_handler.get_broadcast())
     else:
         runner.run(opt_handler.get_name(), opt_handler.get_control_port(),
-            opt_handler.get_network_port())
+            opt_handler.get_network_port(), opt_handler.get_broadcast())
 
 if __name__ == '__main__':
     sys.exit(main())
