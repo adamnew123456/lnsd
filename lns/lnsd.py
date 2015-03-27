@@ -15,7 +15,7 @@ class LNSDaemon(daemon.Daemon):
     def run(self, hostname, control_port, network_port, broadcast_addr):
         my_reactor = reactor.Reactor()
         net_handler = net_proto.ProtocolHandler(my_reactor, hostname,
-            addr=broadcast_addr,
+            address=broadcast_addr,
             port=network_port)
         control_handler = control_proto.ProtocolHandler(net_handler,
             my_reactor, port=control_port)
