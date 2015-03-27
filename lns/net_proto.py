@@ -12,6 +12,7 @@ record this message as they receive it, to update their caches.
 from collections import defaultdict, namedtuple
 import logging
 import socket
+import struct
 import time
 
 from lns import reactor, utils
@@ -118,7 +119,14 @@ class ProtocolHandler:
         LOGGER.debug('Binding to network on port %d', self.port)
 
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+
+        membership = struct.pack('=4sl', 
+            socket.inet_aton(self.broadcast_addr), 
+            socket.INADDR_ANY)
+        self.server_sock.setsockopt(socket.IPPROTO_IP, 
+            socket.ADD_IP_MEMBERSHIP, 
+            membership)
+
         self.server_sock.bind((self.broadcast_addr, self.port))
         self.reactor.bind(self.server_sock, reactor.READABLE, self.on_message)
         self.reactor.add_step_callback(self.on_announce_timeout)
