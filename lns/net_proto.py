@@ -124,7 +124,7 @@ class ProtocolHandler:
             socket.inet_aton(self.broadcast_addr), 
             socket.INADDR_ANY)
         self.server_sock.setsockopt(socket.IPPROTO_IP, 
-            socket.ADD_IP_MEMBERSHIP, 
+            socket.IP_ADD_MEMBERSHIP, 
             membership)
 
         self.server_sock.bind((self.broadcast_addr, self.port))
