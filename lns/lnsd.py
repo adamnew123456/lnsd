@@ -49,7 +49,7 @@ Options:
 
     -b [BROADCAST_ADDRESS]
         The IP address to use for sending broadcast packets. By default, this is
-        the 16-bit block, 192.168.255.255.
+        the LAN multicast address 224.0.0.1.
 
     -n NAME
         The name that lnsd will try to assign to this machine. The default is
@@ -126,7 +126,7 @@ class ConfigHandler:
         self.name = (self.PRI_DEFAULT, socket.gethostname())
         self.daemonize = (self.PRI_DEFAULT, False)
         self.verbose = (self.PRI_DEFAULT, False)
-        self.broadcast = (self.PRI_DEFAULT, '192.168.255.255')
+        self.broadcast = (self.PRI_DEFAULT, net_proto.BROADCAST_ADDR)
 
     def get_network_port(self):
         return self.net_port[1]

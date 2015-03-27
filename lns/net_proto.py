@@ -21,7 +21,7 @@ LOGGER = logging.getLogger('lns.net_proto')
 NET_PORT = 15051
 
 # The broadcast address which covers typical LANs
-BROADCAST_ADDR = '192.168.255.255'
+BROADCAST_ADDR = '224.0.0.1'
 
 # All packets received from the network are 512 bytes, not including the UDP
 # header
@@ -119,7 +119,7 @@ class ProtocolHandler:
 
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.server_sock.bind(('0.0.0.0', self.port))
+        self.server_sock.bind((self.broadcast_addr, self.port))
         self.reactor.bind(self.server_sock, reactor.READABLE, self.on_message)
         self.reactor.add_step_callback(self.on_announce_timeout)
 
@@ -170,7 +170,7 @@ class ProtocolHandler:
         try:
             utils.sendto_all(self.server_sock, Announce(self.hostname).serialize(),
                 (self.broadcast_addr, self.port))
-            LOGGER.debug('Sent an Announce')
+            LOGGER.debug('Sent an Announce via %s', self.broadcast_addr)
         except (OSError, socket.error):
             # At this point, we've disconnected, so we need to sit on the socket
             # until we reconnect; this should be okay, since the socket should

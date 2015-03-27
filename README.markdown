@@ -39,7 +39,7 @@ the following form:
     hostname=foo.example
     daemonize=false
     verbose=false
-    broadcast_address=192.168.255.255
+    broadcast_address=224.0.0.1
 
 (Note that it accepts any format which Python's configparser module can - for example,
 comments).
