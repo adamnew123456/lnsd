@@ -26,7 +26,7 @@ import io
 import socket
 import struct
 
-from . import net_proto, reactor, utils
+from lns import net_proto, reactor, utils
 
 CONTROL_PORT = 10771
 

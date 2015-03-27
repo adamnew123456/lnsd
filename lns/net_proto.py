@@ -10,10 +10,13 @@ network, and that it is asserting a particular hostname. Other hosts should
 record this message as they receive it, to update their caches.
 """
 from collections import defaultdict, namedtuple
+import logging
 import socket
 import time
 
-from . import reactor, utils
+from lns import reactor, utils
+
+LOGGER = logging.getLogger('lns.net_proto')
 
 NET_PORT = 15051
 
@@ -108,6 +111,8 @@ class ProtocolHandler:
         """
         Opens up the network socket for sending and receiving Announce messages.
         """
+        LOGGER.debug('Binding to network on port %d', self.port)
+
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         self.server_sock.bind(('0.0.0.0', self.port))
@@ -161,6 +166,7 @@ class ProtocolHandler:
         try:
             utils.sendto_all(self.server_sock, Announce(self.hostname).serialize(),
                 ('255.255.255.255', self.port))
+            LOGGER.debug('Sent an Announce')
         except (OSError, socket.error):
             # At this point, we've disconnected, so we need to sit on the socket
             # until we reconnect; this should be okay, since the socket should
@@ -176,7 +182,9 @@ class ProtocolHandler:
             if now - last_announce_time > ANNOUNCE_TTL
         ]
 
+        LOGGER.debug('Dropping %d peers', len(to_drop))
         for peer in to_drop:
+            LOGGER.debug('-- Dropping: %s', peer)
             del self.peer_last_announce_time[peer]
             del self.peer_buffers[peer]
 
@@ -189,7 +197,9 @@ class ProtocolHandler:
         Gets the amount of time since the last announce.
         """
         time_since_last_announce = time.time() - self.last_announce_time
-        return max(ANNOUNCE_ALARM - time_since_last_announce, 0)
+        time_until_next_announce = max(ANNOUNCE_ALARM - time_since_last_announce, 0)
+        LOGGER.debug('Sending Announce in %f seconds', time_until_next_announce)
+        return time_until_next_announce
 
     def handle_messages(self, host):
         """
@@ -198,6 +208,7 @@ class ProtocolHandler:
         buffer_stream = utils.TransactionalBytesIO(self.peer_buffers[host])
         while True:
             with buffer_stream.get_transaction() as txn:
+                LOGGER.debug('Message from %s', host)
                 stream = txn.get_stream()
                 packet = stream.read(PACKET_SIZE)
                 if len(packet) < PACKET_SIZE:
@@ -220,8 +231,13 @@ class ProtocolHandler:
                 # the old name before assigning the new one
                 if host in self.ip_to_host:
                     old_hostname = self.ip_to_host[host]
+                    LOGGER.debug('Host at %s: %s -> %s',
+                        host, 
+                        old_hostname, 
+                        message.hostname)
                     self.host_to_ips[old_hostname].remove(host)
 
+                LOGGER.debug('%s -> %s', host, message.hostname)
                 self.ip_to_host[host] = message.hostname
                 self.host_to_ips[message.hostname].add(host)
 
@@ -234,5 +250,6 @@ class ProtocolHandler:
         buffer.
         """
         data, (host, _) = self.server_sock.recvfrom(PACKET_SIZE)
+        LOGGER.debug('%d bytes of data from %s', len(data), host)
         self.peer_buffers[host] += data
         self.handle_messages(host)

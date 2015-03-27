@@ -6,7 +6,7 @@ name-host mapping.
 import getopt
 import sys
 
-from . import control_proto, net_proto
+from lns import control_proto, net_proto
 
 HELP = """lns-query - Query the lnsd server.
 Usage:

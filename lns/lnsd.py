@@ -5,10 +5,11 @@ as command line options.
 """
 import configparser
 import getopt
+import logging
 import socket
 import sys
 
-from . import daemon, control_proto, net_proto, reactor, utils
+from lns import daemon, control_proto, net_proto, reactor, utils
 
 class LNSDaemon(daemon.Daemon):
     def run(self, hostname, control_port, network_port):
@@ -29,7 +30,7 @@ class LNSDaemon(daemon.Daemon):
 HELP = """lnsd - An implementation of the LAN Naming Service protocol.
 Usage:
 
-    lnsd [-c config] [-p [control-port]:[network-port]] [-n name]
+    lnsd [-c config] [-p [control-port]:[network-port]] [-n name] [-v]
 
 Options:
 
@@ -53,11 +54,14 @@ Options:
         This causes lnsd to go into daemon mode. By default, lnsd remains in
         the foreground.
 
+    -v
+        Print out logging messages.
+
     -h
         Print out this help message.
 """
 
-USAGE = 'lnsd [-c config] [-p [control-port]:[network-port]] [-n name]'
+USAGE = 'lnsd [-c config] [-p [control-port]:[network-port]] [-n name] [-v]'
 
 MAX_PORT = 65535
 def check_port_or_die(argvalue):
@@ -116,6 +120,7 @@ class ConfigHandler:
         self.control_port = (self.PRI_DEFAULT, control_proto.CONTROL_PORT)
         self.name = (self.PRI_DEFAULT, socket.gethostname())
         self.daemonize = (self.PRI_DEFAULT, False)
+        self.verbose = (self.PRI_DEFAULT, False)
 
     def get_network_port(self):
         return self.net_port[1]
@@ -128,6 +133,9 @@ class ConfigHandler:
 
     def get_daemonize(self):
         return self.daemonize[1]
+
+    def get_verbose(self):
+        return self.verbose[1]
 
     def assign(self, option, priority, value):
         """
@@ -145,7 +153,7 @@ class ConfigHandler:
         Processes command line arguments, and stores the options specified by
         those arguments.
         """
-        opts, rest = getopt.getopt(argv, 'c:p:n:D')
+        opts, rest = getopt.getopt(argv, 'c:p:n:Dv')
         if rest:
             # We have to hijack getopt's exception value since that's what the
             # caller should already be watching
@@ -172,6 +180,8 @@ class ConfigHandler:
                 self.assign('name', self.PRI_CONFIG, hostname)
             elif optname == '-D':
                 self.assign('daemonize', self.PRI_CMDLINE, True)
+            elif optname == '-v':
+                self.assign('verbose', self.PRI_CMDLINE, True)
 
     def process_config_file(self, filename):
         """
@@ -194,6 +204,9 @@ class ConfigHandler:
             elif 'daemonize' in lnsd_config:
                 is_daemon = check_boolean_or_die(lnsd_config['daemonize'])
                 self.assign('daemonize', self.PRI_CONFIG, is_daemon)
+            elif 'verbose' in lnsd_config:
+                is_verbose = check_boolean_or_die(lnsd_config['verbose'])
+                self.assign('verbose', self.PRI_CONFIG, is_verbose)
 
 def main():
     if '-h' in sys.argv[1:]:
@@ -206,6 +219,9 @@ def main():
     except getopt.GetoptError:
         print(USAGE, file=sys.stderr) 
         return 1
+
+    if opt_handler.get_verbose():
+        logging.basicConfig(level=logging.DEBUG, stream=sys.stderr)
 
     runner = LNSDaemon()
     if opt_handler.get_daemonize():

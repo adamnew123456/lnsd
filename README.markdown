@@ -32,7 +32,7 @@ the following command line options:
     lnsd - An implementation of the LAN Naming Service protocol.
     Usage:
 
-        lnsd [-c config] [-p [control-port]:[network-port]] [-n name]
+        lnsd [-c config] [-p [control-port]:[network-port]] [-n name] [-v]
 
     Options:
 
@@ -54,6 +54,8 @@ the following command line options:
         -D              This causes lnsd to go into daemon mode. By default, lnsd
                         remains in the foreground.
 
+        -v              Print out logging messages.
+
         -h              Print out this help message.
 
 The default configuration file that it reads is `/etc/lnsd.conf`, but can also read
@@ -65,6 +67,7 @@ the following form:
     control_port=10771
     hostname=foo.example
     daemonize=false
+    verbose=false
 
 (Note that it accepts any format which Python's configparser module can - for example,
 comments).
